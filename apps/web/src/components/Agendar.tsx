@@ -1,0 +1,450 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
+import { Navbar } from "@/components/Navbar";
+import { configPublica, profesionalesPublicos, serviciosPublicos } from "@/lib/supabaseClient";
+import { llamarEdge } from "@/lib/api";
+import { googleCalendarLink, icsLink } from "@/lib/calendarLink";
+import type { Config, ProfesionalPublico, ServicioPublico } from "@/types";
+
+type Paso = "servicio" | "profesional" | "horario" | "datos" | "confirmacion";
+
+interface Slot {
+  profesional_id: string;
+  start: string;
+  end: string;
+}
+
+const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
+
+function fmtHora(iso: string): string {
+  return new Intl.DateTimeFormat("es", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: TZ,
+  }).format(new Date(iso));
+}
+
+function fmtDia(iso: string): string {
+  return new Intl.DateTimeFormat("es", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(iso));
+}
+
+export function Agendar() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const servicioPreseleccionado = params.get("servicio");
+
+  const [servicios, setServicios] = useState<ServicioPublico[]>([]);
+  const [profesionales, setProfesionales] = useState<ProfesionalPublico[]>([]);
+  const [config, setConfig] = useState<Config | null>(null);
+
+  const [paso, setPaso] = useState<Paso>("servicio");
+  const [servicio, setServicio] = useState<ServicioPublico | null>(null);
+  const [profesionalId, setProfesionalId] = useState<string | null>(null);
+  const [fecha, setFecha] = useState<string>("");
+  const [slot, setSlot] = useState<Slot | null>(null);
+
+  const [datos, setDatos] = useState({ nombre: "", email: "", telefono: "", website: "" });
+  const [cargandoSlots, setCargandoSlots] = useState(false);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const [citaFinal, setCitaFinal] = useState<{
+    id: string;
+    start: string;
+    end: string;
+    servicio: string;
+    profesional: string;
+    link_gestion: string;
+  } | null>(null);
+
+  useEffect(() => {
+    Promise.all([configPublica(), serviciosPublicos(), profesionalesPublicos()]).then(
+      ([c, s, p]) => {
+        setConfig(c.data as Config | null);
+        const sv = (s.data as ServicioPublico[]) ?? [];
+        setServicios(sv);
+        setProfesionales((p.data as ProfesionalPublico[]) ?? []);
+        if (servicioPreseleccionado) {
+          const found = sv.find((x) => x.id === servicioPreseleccionado);
+          if (found) {
+            setServicio(found);
+            setPaso("profesional");
+          }
+        }
+      }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const profesionalesDelServicio = useMemo(() => {
+    if (!servicio) return [];
+    return profesionales.filter((p) => servicio.profesionales_ids.includes(p.id));
+  }, [servicio, profesionales]);
+
+  const dias = useMemo(() => {
+    const arr: string[] = [];
+    const hoy = new Date();
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(hoy);
+      d.setDate(hoy.getDate() + i);
+      arr.push(d.toISOString().slice(0, 10));
+    }
+    return arr;
+  }, []);
+
+  async function cargarSlots(dia: string) {
+    if (!servicio) return;
+    setCargandoSlots(true);
+    setError(null);
+    try {
+      const res = await llamarEdge<{ slots: Slot[] }>("consultar-disponibilidad", {
+        servicio_id: servicio.id,
+        profesional_id: profesionalId,
+        fecha: dia,
+        dias: 1,
+      });
+      setSlots(res.slots.sort((a, b) => a.start.localeCompare(b.start)));
+      setFecha(dia);
+    } catch (e) {
+      setError((e as Error).message);
+      setSlots([]);
+    } finally {
+      setCargandoSlots(false);
+    }
+  }
+
+  async function confirmar() {
+    if (!servicio || !slot) return;
+    setError(null);
+    try {
+      const res = await llamarEdge<{
+        ok: boolean;
+        cita: { id: string; start: string; end: string };
+        link_gestion: string;
+      }>("crear-cita", {
+        servicio_id: servicio.id,
+        profesional_id: slot.profesional_id,
+        start: slot.start,
+        nombre_cliente: datos.nombre,
+        email_cliente: datos.email,
+        telefono_cliente: datos.telefono || null,
+        website: datos.website,
+      });
+      const profesional = profesionales.find((p) => p.id === slot.profesional_id);
+      setCitaFinal({
+        id: res.cita.id,
+        start: res.cita.start,
+        end: res.cita.end,
+        servicio: servicio.nombre,
+        profesional: profesional?.nombre ?? "",
+        link_gestion: res.link_gestion,
+      });
+      setPaso("confirmacion");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  const steps: { key: Paso; label: string }[] = [
+    { key: "servicio", label: "Servicio" },
+    { key: "profesional", label: "Profesional" },
+    { key: "horario", label: "Horario" },
+    { key: "datos", label: "Tus datos" },
+  ];
+
+  return (
+    <div className="flex min-h-screen flex-col">
+      <Navbar />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
+        <div className="mb-6 flex items-center gap-2">
+          {steps.map((s, i) => (
+            <div key={s.key} className="flex items-center gap-2">
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
+                  paso === s.key
+                    ? "bg-white text-violet-700"
+                    : "bg-white/15 text-white"
+                }`}
+              >
+                {i + 1}
+              </div>
+              <span
+                className={`text-xs font-medium ${
+                  paso === s.key ? "text-white" : "text-violet-200"
+                }`}
+              >
+                {s.label}
+              </span>
+              {i < steps.length - 1 && <span className="text-white/30">·</span>}
+            </div>
+          ))}
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
+            {error}
+          </div>
+        )}
+
+        {paso === "servicio" && (
+          <section className="grid gap-4 sm:grid-cols-2">
+            {servicios.map((s) => (
+              <Tarjeta key={s.id} className="p-5">
+                <h3 className="font-bold text-slate-800">{s.nombre}</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {s.duracion_min} min · ${s.precio}
+                </p>
+                <div className="mt-4">
+                  <Boton
+                    variante="primario"
+                    onClick={() => {
+                      setServicio(s);
+                      setPaso("profesional");
+                    }}
+                  >
+                    Elegir
+                  </Boton>
+                </div>
+              </Tarjeta>
+            ))}
+          </section>
+        )}
+
+        {paso === "profesional" && servicio && (
+          <section className="space-y-3">
+            <Boton variante="secundario" onClick={() => setPaso("servicio")}>
+              ← Volver
+            </Boton>
+            <Tarjeta className="p-4">
+              <button
+                className="flex w-full items-center gap-3 text-left"
+                onClick={() => {
+                  setProfesionalId(null);
+                  setPaso("horario");
+                }}
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-700">
+                  ✨
+                </span>
+                <div>
+                  <p className="font-semibold text-slate-800">
+                    Cualquier profesional disponible
+                  </p>
+                  <p className="text-sm text-slate-500">
+                    Asignamos el primero con disponibilidad
+                  </p>
+                </div>
+              </button>
+            </Tarjeta>
+            {profesionalesDelServicio.map((p) => (
+              <Tarjeta key={p.id} className="p-4">
+                <button
+                  className="flex w-full items-center gap-3 text-left"
+                  onClick={() => {
+                    setProfesionalId(p.id);
+                    setPaso("horario");
+                  }}
+                >
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-700">
+                    {p.nombre.charAt(0).toUpperCase()}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-slate-800">{p.nombre}</p>
+                    <p className="text-sm text-slate-500">
+                      Profesional de {servicio.nombre}
+                    </p>
+                  </div>
+                </button>
+              </Tarjeta>
+            ))}
+          </section>
+        )}
+
+        {paso === "horario" && servicio && (
+          <section>
+            <Boton variante="secundario" onClick={() => setPaso("profesional")}>
+              ← Volver
+            </Boton>
+            <h2 className="mb-3 mt-4 text-lg font-bold text-white">
+              Elige el día
+            </h2>
+            <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+              {dias.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => cargarSlots(d)}
+                  className={`shrink-0 rounded-xl border px-4 py-2 text-center text-xs font-semibold transition ${
+                    fecha === d
+                      ? "border-white bg-white text-violet-700"
+                      : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  }`}
+                >
+                  {fmtDia(d)}
+                </button>
+              ))}
+            </div>
+
+            {cargandoSlots && (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
+            )}
+
+            {!cargandoSlots && slots.length > 0 && (
+              <>
+                <h3 className="mb-2 text-sm font-semibold text-violet-100">
+                  Horarios disponibles
+                </h3>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {slots.map((s) => (
+                    <button
+                      key={s.start}
+                      onClick={() => setSlot(s)}
+                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                        slot?.start === s.start
+                          ? "border-white bg-white text-violet-700"
+                          : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                      }`}
+                    >
+                      {fmtHora(s.start)}
+                    </button>
+                  ))}
+                </div>
+                {slot && (
+                  <div className="mt-5">
+                    <Boton
+                      variante="primario"
+                      onClick={() => setPaso("datos")}
+                      className="w-full sm:w-auto"
+                    >
+                      Continuar →
+                    </Boton>
+                  </div>
+                )}
+              </>
+            )}
+
+            {!cargandoSlots && fecha && slots.length === 0 && (
+              <p className="py-8 text-center text-violet-100">
+                No hay horarios disponibles para este día.
+              </p>
+            )}
+          </section>
+        )}
+
+        {paso === "datos" && slot && servicio && (
+          <section>
+            <Boton variante="secundario" onClick={() => setPaso("horario")}>
+              ← Volver
+            </Boton>
+            <Tarjeta className="mx-auto mt-4 w-full max-w-lg p-6">
+              <div className="mb-4 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-800">
+                {servicio.nombre} · {fmtDia(slot.start)} a las {fmtHora(slot.start)}
+              </div>
+              <div className="space-y-4">
+                <Campo
+                  label="Nombre"
+                  placeholder="Tu nombre"
+                  value={datos.nombre}
+                  onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
+                />
+                <Campo
+                  label="Email"
+                  type="email"
+                  placeholder="tucorreo@ejemplo.com"
+                  value={datos.email}
+                  onChange={(e) => setDatos({ ...datos, email: e.target.value })}
+                />
+                <Campo
+                  label="Teléfono (opcional)"
+                  placeholder="+57 300 000 0000"
+                  value={datos.telefono}
+                  onChange={(e) => setDatos({ ...datos, telefono: e.target.value })}
+                />
+                <input
+                  type="text"
+                  value={datos.website}
+                  onChange={(e) => setDatos({ ...datos, website: e.target.value })}
+                  className="hidden"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                />
+                <Boton
+                  variante="primario"
+                  onClick={confirmar}
+                  className="w-full"
+                  disabled={!datos.nombre || !datos.email.includes("@")}
+                >
+                  Confirmar cita
+                </Boton>
+              </div>
+            </Tarjeta>
+          </section>
+        )}
+
+        {paso === "confirmacion" && citaFinal && (
+          <Tarjeta className="mx-auto w-full max-w-lg p-8 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">
+              ✓
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800">¡Cita confirmada!</h2>
+            <p className="mt-2 text-slate-500">
+              Te enviamos un correo con el resumen y un enlace para gestionarla.
+            </p>
+            <div className="mx-auto mt-6 max-w-sm rounded-xl bg-violet-50 px-5 py-4 text-left text-sm text-violet-800">
+              <p>
+                <strong>{citaFinal.servicio}</strong>
+              </p>
+              <p className="mt-1">
+                {fmtDia(citaFinal.start)} · {fmtHora(citaFinal.start)} –{" "}
+                {fmtHora(citaFinal.end)}
+              </p>
+              <p className="mt-1">{citaFinal.profesional}</p>
+            </div>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <a
+                href={googleCalendarLink({
+                  start: citaFinal.start,
+                  end: citaFinal.end,
+                  titulo: `${citaFinal.servicio} · ${citaFinal.profesional}`,
+                  ubicacion: config?.direccion ?? "",
+                })}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-500"
+              >
+                Añadir a Google Calendar
+              </a>
+              <a
+                href={icsLink({
+                  start: citaFinal.start,
+                  end: citaFinal.end,
+                  titulo: `${citaFinal.servicio} · ${citaFinal.profesional}`,
+                  uid: citaFinal.id,
+                  ubicacion: config?.direccion ?? "",
+                })}
+                download="cita.ics"
+                className="rounded-xl border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
+              >
+                Descargar .ics
+              </a>
+            </div>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <Boton variante="secundario" onClick={() => router.push("/")}>
+                Volver al inicio
+              </Boton>
+            </div>
+          </Tarjeta>
+        )}
+      </main>
+    </div>
+  );
+}

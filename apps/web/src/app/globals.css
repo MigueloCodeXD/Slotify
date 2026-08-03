@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4effa;
+  --foreground: #1e1b2e;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  /* Fondo morado profesional y moderno */
+  background: radial-gradient(1200px 600px at 15% -10%, #7c3aed 0%, #6d28d9 35%, #4c1d95 70%, #2e1065 100%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(168, 85, 247, 0.35);
+}

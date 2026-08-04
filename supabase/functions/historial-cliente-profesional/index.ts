@@ -4,12 +4,7 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 
-const schema = z.object({
-  desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-});
-
-const OFF = 5 * 3600 * 1000;
+const schema = z.object({ cliente_id: z.string().uuid() });
 
 function norm(s: string): string {
   return s.trim().replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00");
@@ -22,7 +17,7 @@ function parseRango(text: string): { start: string; end: string } {
   return { start: parse(parts[0]!), end: parse(parts[1]!) };
 }
 
-export async function agendaDiaRequest(req: Request): Promise<Response> {
+export async function historialClienteRequest(req: Request): Promise<Response> {
   const cors = handleCors(req);
   if (cors) return cors;
 
@@ -39,43 +34,33 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
-  const d = parsed.data;
 
-  const desdeMs = Date.parse(`${d.desde}T05:00:00Z`);
-  const hastaMs = Date.parse(`${d.hasta}T05:00:00Z`) + 24 * 3600 * 1000;
-  const ventana = `["${new Date(desdeMs).toISOString()}","${new Date(hastaMs).toISOString()}")`;
+  const { data: cliente } = await admin
+    .from("clientes")
+    .select("id, nombre, email, telefono")
+    .eq("id", parsed.data.cliente_id)
+    .maybeSingle();
+  if (!cliente) return json({ error: "No se encontró el cliente." }, 404);
 
   const { data: citas, error } = await admin
     .from("citas")
-    .select("id, profesional_id, rango_tiempo, estado, notas, servicio:servicios(id,nombre,duracion_min), cliente:clientes(id,nombre,email,telefono)")
+    .select("id, rango_tiempo, estado, servicio:servicios(id,nombre,precio,duracion_min)")
     .eq("profesional_id", prof.id)
-    .filter("rango_tiempo", "ov", ventana);
+    .eq("cliente_id", cliente.id)
+    .order("rango_tiempo", { ascending: false })
+    .limit(100);
+  if (error) return json({ error: "No se pudo consultar el historial." }, 500);
 
-  if (error) return json({ error: "No se pudo consultar la agenda." }, 500);
-
-  const { data: bloqueos } = await admin
-    .from("bloqueos")
-    .select("id, rango_tiempo, motivo")
-    .eq("profesional_id", prof.id)
-    .filter("rango_tiempo", "ov", ventana);
-
-  const citasOut = (citas ?? []).map((c) => ({
-    ...c,
-    ...parseRango(c.rango_tiempo as string),
-    rango_tiempo: undefined,
-  }));
-  const bloqueosOut = (bloqueos ?? []).map((b) => ({
-    ...b,
-    ...parseRango(b.rango_tiempo as string),
-    rango_tiempo: undefined,
-  }));
-
-  return json({ citas: citasOut, bloqueos: bloqueosOut, timezone: "America/Bogota", offset: OFF });
+  return json({
+    ok: true,
+    cliente,
+    citas: (citas ?? []).map((c) => ({ ...c, ...parseRango(c.rango_tiempo as string), rango_tiempo: undefined })),
+  });
 }
 
 serve(async (req) => {
   try {
-    const res = await agendaDiaRequest(req);
+    const res = await historialClienteRequest(req);
     const body = await res.text();
     return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {

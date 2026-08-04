@@ -1,7 +1,8 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 
+/* ---- Botón ---- */
 export function Boton({
   children,
   onClick,
@@ -19,12 +20,14 @@ export function Boton({
 }) {
   const estilos = {
     primario:
-      "bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-900/30",
+      "bg-gradient-to-r from-violet-500 to-violet-400 text-white border border-white/10 shadow-lg shadow-violet-900/40 hover:shadow-violet-500/30 hover:from-violet-500 hover:to-fuchsia-400",
     secundario:
-      "bg-white/10 hover:bg-white/20 text-white border border-white/20",
-    fantasma: "bg-transparent hover:bg-white/10 text-violet-100",
-    claro: "bg-white hover:bg-violet-50 text-violet-700 border border-violet-600",
-    peligro: "bg-white hover:bg-rose-50 text-rose-600 border border-rose-500",
+      "glass text-white/90 hover:border-white/20 hover:bg-white/[0.09]",
+    fantasma: "bg-transparent hover:bg-white/10 text-violet-200",
+    claro:
+      "glass-strong text-white hover:border-violet-300/40 hover:text-violet-100",
+    peligro:
+      "glass text-rose-200 hover:border-rose-400/40 hover:bg-rose-500/10",
   }[variante];
 
   return (
@@ -32,59 +35,132 @@ export function Boton({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${estilos} ${className}`}
+      className={`group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 disabled:active:scale-100 ${estilos} ${className}`}
     >
       {children}
     </button>
   );
 }
 
-export function Tarjeta({ children, className = "" }: { children: ReactNode; className?: string }) {
+/* ---- Tarjeta de vidrio ---- */
+export function Tarjeta({
+  children,
+  className = "",
+  style,
+}: {
+  children: ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-white/95 text-slate-800 shadow-xl shadow-black/10 backdrop-blur ${className}`}
+      style={style}
+      className={`glass glass-hover rounded-2xl text-zinc-100 ${className}`}
     >
       {children}
     </div>
   );
 }
 
+/* ---- Input ---- */
 export function Campo({
   label,
   ...props
 }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-violet-700">
+      <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-violet-300/80">
         {label}
       </span>
       <input
         {...props}
-        className={`w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-400/40 ${props.className ?? ""}`}
+        className={`w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none backdrop-blur transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/25 ${
+          props.className ?? ""
+        }`}
       />
     </label>
   );
 }
 
+/* ---- Spinner ---- */
 export function Spinner({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`h-6 w-6 animate-spin rounded-full border-2 border-violet-300 border-t-violet-700 ${className}`}
+      className={`h-6 w-6 animate-spin rounded-full border-2 border-violet-300/30 border-t-violet-400 ${className}`}
       aria-label="Cargando"
     />
   );
 }
 
+/* ---- Estado de cita (colores translúcidos suaves) ---- */
 export function ChipEstado({ estado }: { estado: string }) {
   const map: Record<string, string> = {
-    confirmada: "bg-emerald-500/15 text-emerald-300 border-emerald-400/30",
-    cancelada: "bg-rose-500/15 text-rose-300 border-rose-400/30",
-    completada: "bg-sky-500/15 text-sky-300 border-sky-400/30",
-    no_show: "bg-amber-500/15 text-amber-300 border-amber-400/30",
+    confirmada: "bg-teal-400/10 text-teal-300 border-teal-300/25",
+    cancelada: "bg-rose-400/10 text-rose-300/80 border-rose-400/25",
+    completada: "bg-sky-400/10 text-sky-300 border-sky-300/25",
+    no_show: "bg-amber-400/10 text-amber-300/85 border-amber-300/25",
+    pendiente: "bg-fuchsia-400/10 text-fuchsia-300 border-fuchsia-300/25",
+  };
+  const dot: Record<string, string> = {
+    confirmada: "bg-teal-400",
+    cancelada: "bg-rose-400/80",
+    completada: "bg-sky-400",
+    no_show: "bg-amber-400",
+    pendiente: "bg-fuchsia-400",
   };
   return (
-    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize ${map[estado] ?? map.confirmada}`}>
-      {estado}
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize backdrop-blur ${map[estado] ?? map.confirmada}`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${dot[estado] ?? dot.confirmada}`} />
+      {estado === "no_show" ? "No asistió" : estado}
     </span>
   );
+}
+
+/* ---- Contador animado (incrementa desde 0) ---- */
+export function Contador({
+  valor,
+  moneda = false,
+  duracion = 900,
+  className = "",
+}: {
+  valor: number;
+  moneda?: boolean;
+  duracion?: number;
+  className?: string;
+}) {
+  const [mostrado, setMostrado] = useState(0);
+  const ref = useRef<number | null>(null);
+
+  useEffect(() => {
+    const ini = performance.now();
+    const paso = (t: number) => {
+      const p = Math.min((t - ini) / duracion, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      ref.current = requestAnimationFrame(paso);
+      if (moneda) {
+        setMostrado((valor * eased));
+      } else {
+        setMostrado(Math.round(valor * eased));
+      }
+      if (p >= 1) cancelAnimationFrame(ref.current!);
+    };
+    ref.current = requestAnimationFrame(paso);
+    return () => {
+      if (ref.current) cancelAnimationFrame(ref.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valor]);
+
+  const texto = moneda
+    ? "$" + (Number.isFinite(mostrado) ? mostrado : 0).toFixed(2)
+    : String(mostrado);
+
+  return <span className={`font-mono tabular-nums ${className}`}>{texto}</span>;
+}
+
+/* ---- Skeleton de vidrio ---- */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`skeleton ${className}`} aria-hidden />;
 }

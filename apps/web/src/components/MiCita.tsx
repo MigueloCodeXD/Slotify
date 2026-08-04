@@ -6,6 +6,8 @@ import { Navbar } from "@/components/Navbar";
 import { Boton, ChipEstado, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { googleCalendarLink, icsLink } from "@/lib/calendarLink";
+import { diasProximos, fmtPill } from "@/lib/fechas";
+import { useToast } from "@/components/Toast";
 import type { CitaCliente, Aviso } from "@/types";
 
 const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
@@ -40,13 +42,13 @@ function rango(c: CitaCliente): { start: string; end: string } {
 }
 
 export function MiCita() {
+  const { notificar } = useToast();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
 
   const [cita, setCita] = useState<CitaCliente | null>(null);
   const [avisos, setAvisos] = useState<Record<string, Aviso[]>>({});
   const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [cambio, setCambio] = useState<"cancelar" | "reprogramar" | null>(null);
   const [slot, setSlot] = useState<{ start: string; end: string } | null>(null);
   const [slots, setSlots] = useState<{ start: string; end: string }[]>([]);
@@ -61,9 +63,8 @@ export function MiCita() {
       );
       setCita(res.citas[0]);
       setAvisos(res.avisos ?? {});
-      setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      notificar((e as Error).message, "error");
     } finally {
       setCargando(false);
     }
@@ -74,16 +75,7 @@ export function MiCita() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const dias = useMemo(() => {
-    const arr: string[] = [];
-    const hoy = new Date();
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(hoy);
-      d.setDate(hoy.getDate() + i);
-      arr.push(d.toISOString().slice(0, 10));
-    }
-    return arr;
-  }, []);
+  const dias = useMemo(() => diasProximos(7, TZ), []);
 
   async function cargarSlots(dia: string) {
     if (!cita) return;
@@ -101,7 +93,7 @@ export function MiCita() {
       );
       setSlots(res.slots.sort((a, b) => a.start.localeCompare(b.start)));
     } catch (e) {
-      setError((e as Error).message);
+      notificar((e as Error).message, "error");
       setSlots([]);
     } finally {
       setCargandoSlots(false);
@@ -110,19 +102,28 @@ export function MiCita() {
 
   async function cancelar() {
     if (!cita) return;
-    setError(null);
     try {
       await llamarEdge("cancelar-cita", { token_gestion: token });
       setCambio(null);
       await cargar();
     } catch (e) {
-      setError((e as Error).message);
+      notificar((e as Error).message, "error");
+    }
+  }
+
+  async function confirmar() {
+    if (!cita) return;
+    try {
+      await llamarEdge("confirmar-cita", { token_gestion: token });
+      setCambio(null);
+      await cargar();
+    } catch (e) {
+      notificar((e as Error).message, "error");
     }
   }
 
   async function reprogramar() {
     if (!cita || !slot) return;
-    setError(null);
     setOcupado(false);
     try {
       await llamarEdge("reprogramar-cita", { token_gestion: token, nuevo_start: slot.start });
@@ -131,7 +132,7 @@ export function MiCita() {
     } catch (e) {
       const msg = (e as Error).message;
       if (msg.includes("ocupada") || msg.includes("disponible")) setOcupado(true);
-      setError(msg);
+      notificar(msg, "error");
     }
   }
 
@@ -146,20 +147,18 @@ export function MiCita() {
     );
   }
 
-  if (error && !cita) {
+  if (!cita) {
     return (
       <div className="flex min-h-screen flex-col">
         <Navbar />
-        <main className="mx-auto max-w-lg px-4 py-16">
-          <Tarjeta className="p-6 text-center text-slate-700">
-            <p className="text-sm">{error}</p>
+        <main className="mx-auto w-full max-w-lg px-4 py-16">
+          <Tarjeta className="p-6 text-center text-sm text-zinc-400">
+            No encontramos tu cita. Revisa el enlace de confirmación.
           </Tarjeta>
         </main>
       </div>
     );
   }
-
-  if (!cita) return null;
   const r = rango(cita);
   const titulo = cita.servicio?.nombre ?? "Cita";
 
@@ -167,18 +166,12 @@ export function MiCita() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10">
-        {error && (
-          <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
-            {error}
-          </div>
-        )}
-
         <Tarjeta className="p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">{titulo}</h1>
-              <p className="mt-1 text-sm text-slate-500">{fmt(r.start)}</p>
-              <p className="text-xs text-slate-400">
+              <h1 className="text-2xl font-bold text-zinc-100">{titulo}</h1>
+              <p className="mt-1 text-sm text-zinc-400">{fmt(r.start)}</p>
+              <p className="text-xs text-zinc-500">
                 {cita.profesional?.nombre ?? ""} · {cita.servicio?.duracion_min} min
               </p>
             </div>
@@ -190,11 +183,38 @@ export function MiCita() {
               {avisos[cita.id].map((a) => (
                 <div
                   key={a.id}
-                  className="rounded-xl border-l-4 border-violet-400 bg-violet-50 px-3 py-2 text-sm text-violet-800"
+                  className="rounded-xl border-l-4 border-violet-400 bg-violet-400/10 px-3 py-2 text-sm text-violet-200"
                 >
                   {a.mensaje}
                 </div>
               ))}
+            </div>
+          )}
+
+          {cita.estado === "pendiente" && cita.confirmacion_pendiente && (
+            <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4">
+              <p className="text-sm font-semibold text-amber-800">
+                Esta cita aún no está confirmada.
+              </p>
+              <p className="mt-0.5 text-xs text-amber-700">
+                Confírmala para que quede reservada
+                {cita.confirmacion_expira_at
+                  ? ` antes del ${new Intl.DateTimeFormat("es", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }).format(new Date(cita.confirmacion_expira_at))}.`
+                  : "."}
+              </p>
+              <div className="mt-3 flex gap-3">
+                <Boton variante="primario" onClick={confirmar}>
+                  ✓ Confirmar mi cita
+                </Boton>
+                <Boton variante="claro" onClick={() => setCambio("cancelar")}>
+                  Cancelar
+                </Boton>
+              </div>
             </div>
           )}
 
@@ -209,14 +229,14 @@ export function MiCita() {
                 })}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl bg-violet-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-violet-500"
+                className="rounded-xl bg-violet-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-violet-400/100"
               >
                 Google Calendar
               </a>
               <a
                 href={icsLink({ start: r.start, end: r.end, titulo, uid: cita.id })}
                 download="cita.ics"
-                className="rounded-xl border border-violet-300 px-4 py-2.5 text-center text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
+                className="rounded-xl border border-violet-300 px-4 py-2.5 text-center text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
               >
                 Descargar .ics
               </a>
@@ -247,7 +267,7 @@ export function MiCita() {
 
           {cita.estado === "confirmada" && cambio === "reprogramar" && (
             <div className="mt-6">
-              <p className="mb-3 text-sm font-semibold text-slate-700">
+              <p className="mb-3 text-sm font-semibold text-zinc-200">
                 Elige un nuevo horario
               </p>
               <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
@@ -255,11 +275,9 @@ export function MiCita() {
                   <button
                     key={d}
                     onClick={() => cargarSlots(d)}
-                    className="shrink-0 rounded-xl border border-violet-200 bg-white px-3 py-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-50"
+                    className="shrink-0 rounded-xl border border-violet-400/25 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-400/10"
                   >
-                    {new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric" }).format(
-                      new Date(d + "T12:00:00Z")
-                    )}
+                    {fmtPill(d, TZ)}
                   </button>
                 ))}
               </div>
@@ -274,7 +292,7 @@ export function MiCita() {
                         className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                           slot?.start === s.start
                             ? "border-violet-600 bg-violet-600 text-white"
-                            : "border-violet-200 text-violet-700 hover:bg-violet-50"
+                            : "border-violet-400/30 text-violet-300 hover:bg-violet-400/10"
                         }`}
                       >
                         {new Intl.DateTimeFormat("es", {
@@ -296,7 +314,7 @@ export function MiCita() {
                 </>
               )}
               {!cargandoSlots && slots.length === 0 && (
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-zinc-400">
                   No hay horarios disponibles ese día. Prueba con otro.
                 </p>
               )}

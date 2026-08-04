@@ -13,6 +13,7 @@ const schema = z.object({
   duracion_min: z.number().int().min(1).optional(),
   buffer_min: z.number().int().min(0).optional(),
   activo: z.boolean().optional(),
+  eliminar: z.boolean().optional(),
   profesionales_ids: z.array(z.string().uuid()).optional(),
 });
 
@@ -23,7 +24,7 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
   const userId = await getUserFromRequest(req);
   if (!userId) return json({ error: "No autorizado." }, 401);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof || prof.rol !== "admin") return json({ error: "Solo el administrador puede modificar el catálogo." }, 403);
 
   let body: unknown;
   try {
@@ -34,6 +35,28 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos", detalle: parsed.error.flatten() }, 400);
   const d = parsed.data;
+
+  // Eliminación (borrado físico) del servicio
+  if (d.servicio_id && d.eliminar) {
+    const { count } = await admin
+      .from("citas")
+      .select("id", { count: "exact", head: true })
+      .eq("servicio_id", d.servicio_id)
+      .in("estado", ["confirmada", "pendiente"]);
+    if ((count ?? 0) > 0) {
+      return json({ error: "No se puede eliminar: hay citas activas. Desactívalo en su lugar." }, 400);
+    }
+    const { error } = await admin.from("servicios").delete().eq("id", d.servicio_id);
+    if (error) return json({ error: "No se pudo eliminar el servicio." }, 500);
+    await admin.from("profesional_servicios").delete().eq("servicio_id", d.servicio_id);
+    return json({ ok: true, eliminado: true });
+  }
+
+  if (d.nombre === undefined && d.descripcion === undefined && d.categoria === undefined &&
+      d.precio === undefined && d.duracion_min === undefined && d.buffer_min === undefined &&
+      d.activo === undefined && !d.servicio_id) {
+    return json({ error: "Sin cambios." }, 400);
+  }
 
   const campos: Record<string, unknown> = {};
   if (d.nombre !== undefined) campos.nombre = d.nombre;

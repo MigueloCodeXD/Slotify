@@ -31,7 +31,7 @@ export async function disponibilidadRequest(req: Request): Promise<Response> {
   const startMs = Date.parse(`${d.fecha}T05:00:00Z`);
   const endMs = startMs + d.dias * DAY_MS;
 
-  const { slots } = await consultarDisponibilidad({
+  const { slots, ocupados } = await consultarDisponibilidad({
     servicioId: d.servicio_id,
     profesionalId: d.profesional_id,
     start: startMs,
@@ -44,7 +44,7 @@ export async function disponibilidadRequest(req: Request): Promise<Response> {
     (porDia[key] ??= []).push(s);
   }
 
-  return json({ por_dia: porDia, slots });
+  return json({ por_dia: porDia, slots, ocupados });
 }
 
 serve(async (req) => {

@@ -5,10 +5,13 @@ export type EmailTipo =
   | "cita_modificada_profesional"
   | "cita_cancelada_cliente"
   | "cita_cancelada_profesional"
+  | "cita_pendiente_confirmacion_cliente"
   | "codigo_acceso_cliente"
   | "invitacion_profesional"
   | "aviso_profesional_cliente"
-  | "resumen_matutino";
+  | "resumen_matutino"
+  | "recordatorio_cita_cliente"
+  | "recordatorio_cita_profesional";
 
 export interface DatosEmail {
   to: string;
@@ -131,6 +134,21 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
       `, `Cita cancelada · ${negocio}`);
       return { subject, html };
     }
+    case "cita_pendiente_confirmacion_cliente": {
+      const subject = `Confirma tu cita — ${datos.servicio}`;
+      const html = plantilla(`
+        <p>Hola <strong>{{nombre}}</strong>, el profesional te agendó una cita que está <strong>pendiente de confirmación</strong>:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f6fc;border-radius:12px;padding:16px;margin:16px 0">
+          <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Profesional</td><td style="padding:4px 0;font-weight:bold">{{profesional}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+        </table>
+        <p>Confirma para reservar tu horario. Si no confirmas antes del vencimiento, la cita se liberará automáticamente.</p>
+        <p><a href="{{link_confirmar}}" style="display:inline-block;background:#6d28d9;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none">Confirmar mi cita</a></p>
+        <p style="font-size:12px;color:#8880a0">¿Cambió tu plan? <a href="{{link_gestion}}" style="color:#6d28d9">Gestiona tu cita aquí</a>.</p>
+      `, `Confirma tu cita · ${negocio}`);
+      return { subject, html };
+    }
     case "codigo_acceso_cliente": {
       const subject = `Tu código de acceso · ${negocio}`;
       const html = plantilla(`
@@ -165,6 +183,32 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
         <p>Hola <strong>{{nombre}}</strong>, este es el resumen de tus citas de hoy:</p>
         ${datos.htmlCitas}
       `, `Resumen del día · ${negocio}`);
+      return { subject, html };
+    }
+    case "recordatorio_cita_cliente": {
+      const subject = `Recordatorio de tu cita · ${negocio}`;
+      const html = plantilla(`
+        <p>Hola <strong>{{nombre}}</strong>, te recordamos tu próxima cita:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f6fc;border-radius:12px;padding:16px;margin:16px 0">
+          <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Profesional</td><td style="padding:4px 0;font-weight:bold">{{profesional}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+        </table>
+        <p>Si no puedes asistir, avísanos desde el siguiente enlace:</p>
+        <p><a href="{{link_gestion}}" style="display:inline-block;background:#6d28d9;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none">Gestionar mi cita</a></p>
+      `, `Recordatorio · ${negocio}`);
+      return { subject, html };
+    }
+    case "recordatorio_cita_profesional": {
+      const subject = `Recordatorio: cita de {{cliente}} · ${negocio}`;
+      const html = plantilla(`
+        <p>Hola <strong>{{nombre}}</strong>, recuerda que tienes una cita:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f6fc;border-radius:12px;padding:16px;margin:16px 0">
+          <tr><td style="padding:4px 0;color:#6b6480">Cliente</td><td style="padding:4px 0;font-weight:bold">{{cliente}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+        </table>
+      `, 'Recordatorio de cita · ' + negocio);
       return { subject, html };
     }
   }

@@ -36,9 +36,11 @@ export interface MisCitasResponse {
 
 export interface CitaCliente {
   id: string;
-  estado: "confirmada" | "cancelada" | "completada" | "no_show";
+  estado: "confirmada" | "cancelada" | "completada" | "no_show" | "pendiente";
   rango_tiempo: { start: string; end: string };
   notas: string | null;
+  confirmacion_pendiente?: boolean | null;
+  confirmacion_expira_at?: string | null;
   token_gestion: string;
   servicio: ServicioPublico | null;
   profesional: ProfesionalPublico | null;
@@ -74,10 +76,12 @@ export interface Servicio {
 
 export interface CitaProfesional {
   id: string;
-  estado: "confirmada" | "cancelada" | "completada" | "no_show";
+  profesional_id: string;
+  estado: "confirmada" | "cancelada" | "completada" | "no_show" | "pendiente";
   start: string;
   end: string;
   notas: string | null;
+  confirmacion_pendiente?: boolean | null;
   servicio: { id: string; nombre: string; duracion_min: number };
   cliente: { id: string; nombre: string; email: string; telefono: string | null };
 }

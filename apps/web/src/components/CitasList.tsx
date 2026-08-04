@@ -60,14 +60,14 @@ export function CitasList({
       {ordenadas.map((c) => {
         const r = rango(c);
         return (
-          <div key={c.id} className="rounded-2xl border border-white/10 bg-white/95 p-5 text-slate-800 shadow-lg">
+          <div key={c.id} className="glass glass-hover rounded-2xl p-5 text-zinc-100 shadow-lg">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-slate-800">
+                <p className="text-sm font-bold text-zinc-100">
                   {c.servicio?.nombre ?? "Servicio"}
                 </p>
-                <p className="text-sm text-slate-500 capitalize">{fmt(r.start)}</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-sm text-zinc-400 capitalize">{fmt(r.start)}</p>
+                <p className="text-xs text-zinc-500">
                   {c.profesional?.nombre ?? ""} · {c.servicio?.duracion_min} min
                 </p>
               </div>
@@ -77,7 +77,7 @@ export function CitasList({
             {avisos[c.id] && avisos[c.id].length > 0 && (
               <div className="mt-3 space-y-2">
                 {avisos[c.id].map((a) => (
-                  <div key={a.id} className="rounded-xl border-l-4 border-violet-400 bg-violet-50 px-3 py-2 text-sm text-violet-800">
+                  <div key={a.id} className="rounded-xl border-l-4 border-violet-400 bg-violet-400/10 px-3 py-2 text-sm text-violet-200">
                     {a.mensaje}
                   </div>
                 ))}
@@ -88,7 +88,7 @@ export function CitasList({
               <div className="mt-4">
                 <Link
                   href={`/mi-cita?token=${c.token_gestion}`}
-                  className="inline-block rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500"
+                  className="inline-block rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400/100"
                 >
                   Ver / gestionar
                 </Link>

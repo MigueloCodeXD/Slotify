@@ -113,7 +113,7 @@ export default function MisCitas() {
 
         {etapa === "email" && !restaurando && (
           <Tarjeta className="mx-auto max-w-md p-6">
-            <p className="mb-4 text-sm text-slate-500">
+            <p className="mb-4 text-sm text-zinc-400">
               Ingresa tu correo y te enviaremos un código para acceder a tus citas.
             </p>
             <div className="space-y-4">
@@ -123,7 +123,7 @@ export default function MisCitas() {
                 placeholder="tucorreo@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="text-slate-800 border-slate-300 bg-white placeholder-slate-400 focus:border-violet-400 focus:ring-violet-300"
+                className="text-zinc-100 border-white/10 bg-white/[0.06] placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
               />
               <Boton
                 variante="primario"
@@ -139,7 +139,7 @@ export default function MisCitas() {
 
         {etapa === "codigo" && !restaurando && (
           <Tarjeta className="mx-auto max-w-md p-6">
-            <p className="mb-4 text-sm text-slate-500">
+            <p className="mb-4 text-sm text-zinc-400">
               Ingresa el código de 6 dígitos que te enviamos.
             </p>
             <div className="space-y-4">
@@ -148,7 +148,7 @@ export default function MisCitas() {
                 placeholder="123456"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="text-center text-lg font-bold tracking-[0.5em] text-slate-800 border-slate-300 bg-white placeholder-slate-400 focus:border-violet-400 focus:ring-violet-300"
+                className="text-center text-lg font-bold tracking-[0.5em] text-zinc-100 border-white/10 bg-white/[0.06] placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
               />
               <Boton
                 variante="primario"

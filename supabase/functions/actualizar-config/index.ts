@@ -19,7 +19,7 @@ export async function actualizarConfigRequest(req: Request): Promise<Response> {
   const userId = await getUserFromRequest(req);
   if (!userId) return json({ error: "No autorizado." }, 401);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof || prof.rol !== "admin") return json({ error: "Solo el administrador puede modificar la configuración." }, 403);
 
   let body: unknown;
   try {

@@ -20,3 +20,14 @@ export async function getProfesionalByUser(userId: string) {
   if (error) return { data: null, error };
   return { data, error: null };
 }
+
+// Verifica que la llamada provenga del service_role (usado por los crons).
+// Compara el token del header contra el service role de la plataforma.
+export function esServiceRole(req: Request): boolean {
+  const auth = req.headers.get("Authorization");
+  if (!auth) return false;
+  const token = auth.replace(/^Bearer\s+/i, "");
+  const esperado = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!esperado) return false;
+  return token.length === esperado.length && token === esperado;
+}

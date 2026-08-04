@@ -78,7 +78,7 @@ export async function getOcupado(opts: {
   const { data: citas, error: eC } = await admin
     .from("citas")
     .select("profesional_id, rango_tiempo")
-    .eq("estado", "confirmada")
+    .in("estado", ["confirmada", "pendiente"])
     .in("profesional_id", opts.profesionalIds)
     .filter("rango_tiempo", "ov", ventana);
 
@@ -104,7 +104,10 @@ export async function consultarDisponibilidad(opts: {
   profesionalId?: string | null;
   start: number;
   end: number;
-}): Promise<{ slots: { profesional_id: string; start: string; end: string }[] }> {
+}): Promise<{
+  slots: { profesional_id: string; start: string; end: string }[];
+  ocupados: { profesional_id: string; start: string; end: string }[];
+}> {
   const cfg = await getConfig();
 
   const { data: servicio, error: eS } = await admin
@@ -170,6 +173,7 @@ export async function consultarDisponibilidad(opts: {
   }
 
   const slots: { profesional_id: string; start: string; end: string }[] = [];
+  const ocupados: { profesional_id: string; start: string; end: string }[] = [];
 
   for (
     let dayStart = dayStartUtc(opts.start);
@@ -199,11 +203,13 @@ export async function consultarDisponibilidad(opts: {
           }
           if (libre) {
             slots.push({ profesional_id: pid, start: iso(s), end: iso(s + durMs) });
+          } else {
+            ocupados.push({ profesional_id: pid, start: iso(s), end: iso(s + durMs) });
           }
         }
       }
     }
   }
 
-  return { slots };
+  return { slots, ocupados };
 }

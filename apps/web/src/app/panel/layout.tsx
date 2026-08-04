@@ -38,6 +38,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   }
 
   const links = [
+    { href: "/panel/dashboard", label: "Resumen" },
     { href: "/panel", label: "Calendario" },
     { href: "/panel/configuracion", label: "Configuración" },
   ];
@@ -65,7 +66,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
               <Link
                 key={l.href}
                 href={l.href}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
+                className={`rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-95 ${
                   pathname === l.href
                     ? "bg-white/15 text-white shadow-inner"
                     : "text-violet-100/80 hover:bg-white/10 hover:text-white"
@@ -81,7 +82,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
             )}
             <button
               onClick={salir}
-              className="rounded-xl px-4 py-2 text-sm font-medium text-rose-200 transition hover:bg-rose-500/15"
+              className="rounded-xl px-4 py-2 text-sm font-medium text-rose-200 transition-all duration-200 hover:-translate-y-0.5 hover:bg-rose-500/15 active:scale-95"
             >
               Cerrar sesión
             </button>

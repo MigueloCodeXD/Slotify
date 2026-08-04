@@ -7,6 +7,8 @@ import { Navbar } from "@/components/Navbar";
 import { configPublica, profesionalesPublicos, serviciosPublicos } from "@/lib/supabaseClient";
 import { llamarEdge } from "@/lib/api";
 import { googleCalendarLink, icsLink } from "@/lib/calendarLink";
+import { diasProximos, fmtPill } from "@/lib/fechas";
+import { useToast } from "@/components/Toast";
 import type { Config, ProfesionalPublico, ServicioPublico } from "@/types";
 
 type Paso = "servicio" | "profesional" | "horario" | "datos" | "confirmacion";
@@ -32,6 +34,7 @@ function fmtDia(iso: string): string {
     weekday: "short",
     day: "numeric",
     month: "short",
+    timeZone: TZ,
   }).format(new Date(iso));
 }
 
@@ -44,6 +47,8 @@ export function Agendar() {
   const [profesionales, setProfesionales] = useState<ProfesionalPublico[]>([]);
   const [config, setConfig] = useState<Config | null>(null);
 
+  const { notificar } = useToast();
+
   const [paso, setPaso] = useState<Paso>("servicio");
   const [servicio, setServicio] = useState<ServicioPublico | null>(null);
   const [profesionalId, setProfesionalId] = useState<string | null>(null);
@@ -53,7 +58,7 @@ export function Agendar() {
   const [datos, setDatos] = useState({ nombre: "", email: "", telefono: "", website: "" });
   const [cargandoSlots, setCargandoSlots] = useState(false);
   const [slots, setSlots] = useState<Slot[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [ocupados, setOcupados] = useState<Slot[]>([]);
 
   const [citaFinal, setCitaFinal] = useState<{
     id: string;
@@ -88,32 +93,23 @@ export function Agendar() {
     return profesionales.filter((p) => servicio.profesionales_ids.includes(p.id));
   }, [servicio, profesionales]);
 
-  const dias = useMemo(() => {
-    const arr: string[] = [];
-    const hoy = new Date();
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(hoy);
-      d.setDate(hoy.getDate() + i);
-      arr.push(d.toISOString().slice(0, 10));
-    }
-    return arr;
-  }, []);
+  const dias = useMemo(() => diasProximos(7, TZ), []);
 
   async function cargarSlots(dia: string) {
     if (!servicio) return;
     setCargandoSlots(true);
-    setError(null);
     try {
-      const res = await llamarEdge<{ slots: Slot[] }>("consultar-disponibilidad", {
+      const res = await llamarEdge<{ slots: Slot[]; ocupados: Slot[] }>("consultar-disponibilidad", {
         servicio_id: servicio.id,
         profesional_id: profesionalId,
         fecha: dia,
         dias: 1,
       });
       setSlots(res.slots.sort((a, b) => a.start.localeCompare(b.start)));
+      setOcupados((res.ocupados ?? []).sort((a, b) => a.start.localeCompare(b.start)));
       setFecha(dia);
     } catch (e) {
-      setError((e as Error).message);
+      notificar((e as Error).message, "error");
       setSlots([]);
     } finally {
       setCargandoSlots(false);
@@ -122,7 +118,6 @@ export function Agendar() {
 
   async function confirmar() {
     if (!servicio || !slot) return;
-    setError(null);
     try {
       const res = await llamarEdge<{
         ok: boolean;
@@ -148,7 +143,7 @@ export function Agendar() {
       });
       setPaso("confirmacion");
     } catch (e) {
-      setError((e as Error).message);
+      notificar((e as Error).message, "error");
     }
   }
 
@@ -158,6 +153,9 @@ export function Agendar() {
     { key: "horario", label: "Horario" },
     { key: "datos", label: "Tus datos" },
   ];
+
+  const horarios = [...slots, ...ocupados].sort((a, b) => a.start.localeCompare(b.start));
+  const ocupadoSet = new Set(ocupados.map((o) => o.start));
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -169,7 +167,7 @@ export function Agendar() {
               <div
                 className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
                   paso === s.key
-                    ? "bg-white text-violet-700"
+                    ? "bg-white text-violet-300"
                     : "bg-white/15 text-white"
                 }`}
               >
@@ -187,18 +185,12 @@ export function Agendar() {
           ))}
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
-            {error}
-          </div>
-        )}
-
         {paso === "servicio" && (
           <section className="grid gap-4 sm:grid-cols-2">
             {servicios.map((s) => (
               <Tarjeta key={s.id} className="p-5">
-                <h3 className="font-bold text-slate-800">{s.nombre}</h3>
-                <p className="mt-1 text-sm text-slate-500">
+                <h3 className="font-bold text-zinc-100">{s.nombre}</h3>
+                <p className="mt-1 text-sm text-zinc-400">
                   {s.duracion_min} min · ${s.precio}
                 </p>
                 <div className="mt-4">
@@ -230,14 +222,14 @@ export function Agendar() {
                   setPaso("horario");
                 }}
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-700">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-300">
                   ✨
                 </span>
                 <div>
-                  <p className="font-semibold text-slate-800">
+                  <p className="font-semibold text-zinc-100">
                     Cualquier profesional disponible
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-zinc-400">
                     Asignamos el primero con disponibilidad
                   </p>
                 </div>
@@ -252,12 +244,12 @@ export function Agendar() {
                     setPaso("horario");
                   }}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-700">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-300">
                     {p.nombre.charAt(0).toUpperCase()}
                   </span>
                   <div>
-                    <p className="font-semibold text-slate-800">{p.nombre}</p>
-                    <p className="text-sm text-slate-500">
+                    <p className="font-semibold text-zinc-100">{p.nombre}</p>
+                    <p className="text-sm text-zinc-400">
                       Profesional de {servicio.nombre}
                     </p>
                   </div>
@@ -282,11 +274,11 @@ export function Agendar() {
                   onClick={() => cargarSlots(d)}
                   className={`shrink-0 rounded-xl border px-4 py-2 text-center text-xs font-semibold transition ${
                     fecha === d
-                      ? "border-white bg-white text-violet-700"
+                      ? "border-white bg-white text-violet-300"
                       : "border-white/20 bg-white/10 text-white hover:bg-white/20"
                   }`}
                 >
-                  {fmtDia(d)}
+                  {fmtPill(d)}
                 </button>
               ))}
             </div>
@@ -297,25 +289,32 @@ export function Agendar() {
               </div>
             )}
 
-            {!cargandoSlots && slots.length > 0 && (
+            {!cargandoSlots && horarios.length > 0 && (
               <>
                 <h3 className="mb-2 text-sm font-semibold text-violet-100">
-                  Horarios disponibles
+                  Horarios del dia
                 </h3>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {slots.map((s) => (
-                    <button
-                      key={s.start}
-                      onClick={() => setSlot(s)}
-                      className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                        slot?.start === s.start
-                          ? "border-white bg-white text-violet-700"
-                          : "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                      }`}
-                    >
-                      {fmtHora(s.start)}
-                    </button>
-                  ))}
+                  {horarios.map((s) => {
+                    const ocupado = ocupadoSet.has(s.start);
+                    return (
+                      <button
+                        key={s.start}
+                        disabled={ocupado}
+                        title={ocupado ? "Horario no disponible" : "Horario disponible"}
+                        onClick={() => setSlot(s)}
+                        className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                          slot?.start === s.start
+                            ? "border-white bg-white text-violet-300"
+                            : ocupado
+                              ? "cursor-not-allowed border-white/10 bg-white/5 text-white/40 line-through decoration-rose-400/60"
+                              : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                        }`}
+                      >
+                        {fmtHora(s.start)}
+                      </button>
+                    );
+                  })}
                 </div>
                 {slot && (
                   <div className="mt-5">
@@ -331,7 +330,7 @@ export function Agendar() {
               </>
             )}
 
-            {!cargandoSlots && fecha && slots.length === 0 && (
+            {!cargandoSlots && fecha && horarios.length === 0 && (
               <p className="py-8 text-center text-violet-100">
                 No hay horarios disponibles para este día.
               </p>
@@ -345,7 +344,7 @@ export function Agendar() {
               ← Volver
             </Boton>
             <Tarjeta className="mx-auto mt-4 w-full max-w-lg p-6">
-              <div className="mb-4 rounded-xl bg-violet-50 px-4 py-3 text-sm text-violet-800">
+              <div className="mb-4 rounded-xl bg-violet-400/10 px-4 py-3 text-sm text-violet-200">
                 {servicio.nombre} · {fmtDia(slot.start)} a las {fmtHora(slot.start)}
               </div>
               <div className="space-y-4">
@@ -395,11 +394,11 @@ export function Agendar() {
             <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">
               ✓
             </div>
-            <h2 className="text-2xl font-bold text-slate-800">¡Cita confirmada!</h2>
-            <p className="mt-2 text-slate-500">
+            <h2 className="text-2xl font-bold text-zinc-100">¡Cita confirmada!</h2>
+            <p className="mt-2 text-zinc-400">
               Te enviamos un correo con el resumen y un enlace para gestionarla.
             </p>
-            <div className="mx-auto mt-6 max-w-sm rounded-xl bg-violet-50 px-5 py-4 text-left text-sm text-violet-800">
+            <div className="mx-auto mt-6 max-w-sm rounded-xl bg-violet-400/10 px-5 py-4 text-left text-sm text-violet-200">
               <p>
                 <strong>{citaFinal.servicio}</strong>
               </p>
@@ -419,7 +418,7 @@ export function Agendar() {
                 })}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-500"
+                className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-400/100"
               >
                 Añadir a Google Calendar
               </a>
@@ -432,7 +431,7 @@ export function Agendar() {
                   ubicacion: config?.direccion ?? "",
                 })}
                 download="cita.ics"
-                className="rounded-xl border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-700 transition hover:bg-violet-50"
+                className="rounded-xl border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
               >
                 Descargar .ics
               </a>

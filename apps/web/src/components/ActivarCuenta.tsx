@@ -39,22 +39,26 @@ export function ActivarCuenta() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 left-1/4 h-72 w-72 rounded-full bg-fuchsia-500/30 blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-violet-500/25 blur-3xl" />
+      </div>
       <Tarjeta className="w-full max-w-sm p-8">
-        <h1 className="text-center text-2xl font-bold text-slate-800">
+        <h1 className="text-center text-2xl font-bold text-zinc-100">
           Activa tu cuenta
         </h1>
-        <p className="mt-1 text-center text-sm text-slate-500">
+        <p className="mt-1 text-center text-sm text-zinc-400">
           Define tu contraseña para empezar a trabajar
         </p>
 
         {error && (
-          <div className="mt-4 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-600">
+          <div className="mt-4 rounded-xl border border-rose-400/25 bg-rose-500/15 px-4 py-3 text-sm text-rose-200 backdrop-blur">
             {error}
           </div>
         )}
         {ok && (
-          <div className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          <div className="mt-4 rounded-xl border border-emerald-400/25 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-200 backdrop-blur">
             {ok}{" "}
             <Link href="/login" className="font-semibold underline">
               Ir a iniciar sesión
@@ -70,7 +74,7 @@ export function ActivarCuenta() {
               placeholder="Mínimo 8 caracteres"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="border-slate-300 bg-white text-slate-800 placeholder-slate-400 focus:border-violet-400 focus:ring-violet-300"
+              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Campo
               label="Repite la contraseña"
@@ -78,14 +82,14 @@ export function ActivarCuenta() {
               placeholder="••••••••"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
-              className="border-slate-300 bg-white text-slate-800 placeholder-slate-400 focus:border-violet-400 focus:ring-violet-300"
+              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Campo
               label="Teléfono (opcional)"
               placeholder="+57 300 000 0000"
               value={telefono}
               onChange={(e) => setTelefono(e.target.value)}
-              className="border-slate-300 bg-white text-slate-800 placeholder-slate-400 focus:border-violet-400 focus:ring-violet-300"
+              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Boton type="submit" variante="primario" className="w-full" disabled={cargando}>
               {cargando ? <Spinner /> : "Activar cuenta"}

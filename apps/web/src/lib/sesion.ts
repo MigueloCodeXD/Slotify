@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 
 export async function getTokenSesion(): Promise<string | null> {
+  await supabase.auth.getUser();
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
 }

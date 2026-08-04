@@ -10,8 +10,8 @@ const schema = z.object({
     .array(
       z.object({
         dia_semana: z.number().int().min(0).max(6),
-        hora_inicio: z.string().regex(/^\d{2}:\d{2}$/),
-        hora_fin: z.string().regex(/^\d{2}:\d{2}$/),
+        hora_inicio: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
+        hora_fin: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/),
       })
     )
     .optional(),
@@ -44,7 +44,7 @@ export async function configProfRequest(req: Request): Promise<Response> {
         .select("id, dia_semana, hora_inicio, hora_fin")
         .eq("profesional_id", prof.id)
         .order("dia_semana");
-      return json({ dias: data ?? [] });
+      return json({ dias: (data ?? []).map((x) => ({ ...x, hora_inicio: x.hora_inicio.slice(0, 5), hora_fin: x.hora_fin.slice(0, 5) })) });
     }
     case "guardar_disponibilidad": {
       if (!d.dias) return json({ error: "Faltan días." }, 400);
@@ -54,7 +54,7 @@ export async function configProfRequest(req: Request): Promise<Response> {
       await admin.from("disponibilidad_profesional").delete().eq("profesional_id", prof.id);
       if (d.dias.length > 0) {
         const { error } = await admin.from("disponibilidad_profesional").insert(
-          d.dias.map((x) => ({ ...x, profesional_id: prof.id }))
+          d.dias.map((x) => ({ dia_semana: x.dia_semana, hora_inicio: x.hora_inicio.slice(0, 5), hora_fin: x.hora_fin.slice(0, 5), profesional_id: prof.id }))
         );
         if (error) return json({ error: "No se pudo guardar la disponibilidad." }, 500);
       }

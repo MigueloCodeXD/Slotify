@@ -6,13 +6,16 @@ import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 import { chatConHerramientas, type ToolDef } from "../_shared/gemini.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 
-const SISTEMA = `Eres el copiloto de un profesional en un negocio de citas (Slotify).
-Ayudas a gestionar su agenda mediante comandos.
+function sistema(soloInfo: boolean): string {
+  return `Eres el copiloto de un profesional en un negocio de citas (Slotify).
+${soloInfo ? "MODO SOLO INFORMACIÓN: SOLO consultas y respuestas. NO crees bloqueos, NO canceles citas, NO envíes avisos, NO modifiques el catálogo ni invites profesionales."
+  : "Ayudas a gestionar su agenda mediante comandos."}
 REGLAS:
 - NUNCA inventes datos. Usa siempre las funciones disponibles.
 - El profesional autenticado es quien pregunta; actúa solo sobre sus citas.
 - Para fechas usa formato AAAA-MM-DD; para horas, ISO 8601.
 - Responde breve y en español.`;
+}
 
 const herramientas: ToolDef[] = [
   {
@@ -64,7 +67,7 @@ const herramientas: ToolDef[] = [
   },
   {
     name: "editar_catalogo",
-    description: "Crea o actualiza un servicio del catálogo (cualquier profesional autenticado).",
+    description: "Crea o actualiza un servicio del catálogo (solo el admin).",
     parameters: {
       type: "object",
       properties: {
@@ -76,6 +79,11 @@ const herramientas: ToolDef[] = [
         activo: { type: "boolean" },
       },
     },
+  },
+  {
+    name: "consultar_historial_cliente",
+    description: "Historial de citas del cliente en contexto con este profesional.",
+    parameters: { type: "object", properties: {} },
   },
   {
     name: "invitar_profesional",
@@ -103,10 +111,39 @@ export async function copilotoRequest(req: Request): Promise<Response> {
   } catch {
     return json({ error: "Body inválido" }, 400);
   }
-  const parsed = z.object({ mensaje: z.string().max(800) }).safeParse(body);
+  const parsed = z
+    .object({
+      mensaje: z.string().max(800),
+      cliente_id: z.string().uuid().optional(),
+      modo: z.enum(["gestion", "info"]).optional(),
+    })
+    .safeParse(body);
   if (!parsed.success) return json({ error: "Mensaje inválido" }, 400);
 
   const esAdmin = prof.rol === "admin";
+  const soloInfo = parsed.data.modo === "info";
+  const herramientasActivas = soloInfo
+    ? herramientas.filter(
+        (h) => !["crear_bloqueo", "cancelar_cita_profesional", "enviar_aviso", "editar_catalogo", "invitar_profesional"].includes(h.name)
+      )
+    : herramientas;
+
+  let contextoCliente: { id: string; nombre: string } | null = null;
+  if (parsed.data.cliente_id) {
+    const { data: cliente } = await admin
+      .from("clientes")
+      .select("id, nombre, email")
+      .eq("id", parsed.data.cliente_id)
+      .maybeSingle();
+    if (!cliente) return json({ error: "Cliente no encontrado." }, 404);
+    const { count } = await admin
+      .from("citas")
+      .select("id", { count: "exact", head: true })
+      .eq("profesional_id", prof.id)
+      .eq("cliente_id", cliente.id);
+    if ((count ?? 0) === 0) return json({ error: "No puedes consultar ese cliente." }, 403);
+    contextoCliente = { id: cliente.id, nombre: cliente.nombre };
+  }
 
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
     consultar_agenda_dia: async (args) => {
@@ -123,7 +160,19 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       const citas = (data ?? []).map((c) => ({ ...c, rango_tiempo: parseRango(c.rango_tiempo as string) }));
       return { citas };
     },
+    consultar_historial_cliente: async () => {
+      if (!contextoCliente) return { error: "No hay cliente en contexto." };
+      const { data } = await admin
+        .from("citas")
+        .select("id, rango_tiempo, estado, servicio:servicios(nombre), notas")
+        .eq("profesional_id", prof.id)
+        .eq("cliente_id", contextoCliente.id)
+        .order("rango_tiempo", { ascending: false })
+        .limit(50);
+      return { cliente: contextoCliente, citas: (data ?? []).map((c) => ({ ...c, rango_tiempo: parseRango(c.rango_tiempo as string) })) };
+    },
     crear_bloqueo: async (args) => {
+      if (soloInfo) return { error: "Modo información: no se permiten acciones." };
       const start = Date.parse(String(args.start ?? ""));
       const end = Date.parse(String(args.end ?? ""));
       if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return { error: "Rango inválido." };
@@ -136,6 +185,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       return { ok: true };
     },
     cancelar_cita_profesional: async (args) => {
+      if (soloInfo) return { error: "Modo información: no se permiten acciones." };
       const { data: cita, error } = await admin
         .from("citas")
         .select("*, cliente:clientes(*), servicio:servicios(*), profesional:profesionales(*)")
@@ -159,6 +209,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       return { ok: true };
     },
     enviar_aviso: async (args) => {
+      if (soloInfo) return { error: "Modo información: no se permiten acciones." };
       const { data: cita } = await admin
         .from("citas")
         .select("id, profesional_id, token_gestion, cliente:clientes(*)")
@@ -185,6 +236,8 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       return { ok: true };
     },
     editar_catalogo: async (args) => {
+      if (soloInfo) return { error: "Modo información: no se permiten acciones." };
+      if (!esAdmin) return { error: "Solo el administrador puede modificar el catálogo." };
       const servicioId = args.servicio_id ? String(args.servicio_id) : null;
       const campos: Record<string, unknown> = {};
       if (args.nombre !== undefined) campos.nombre = String(args.nombre);
@@ -207,6 +260,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       return { ok: true };
     },
     invitar_profesional: async (args) => {
+      if (soloInfo) return { error: "Modo información: no se permiten acciones." };
       if (!esAdmin) return { error: "Solo el administrador puede invitar." };
       const email = String(args.email ?? "").toLowerCase();
       const nombre = String(args.nombre ?? "");
@@ -233,10 +287,19 @@ export async function copilotoRequest(req: Request): Promise<Response> {
     },
   };
 
+  const mensajesIniciales: { role: "user" | "model"; text: string }[] = [];
+  if (contextoCliente) {
+    mensajesIniciales.push({
+      role: "user",
+      text: `Estoy viendo la ficha del cliente "${contextoCliente.nombre}" (id ${contextoCliente.id}). Usa consultar_historial_cliente para ver su historial conmigo y darme un resumen o recomendaciones.`,
+    });
+  }
+  mensajesIniciales.push({ role: "user", text: parsed.data.mensaje });
+
   const { respuesta, fallback } = await chatConHerramientas({
-    sistema: SISTEMA,
-    mensajes: [{ role: "user", text: parsed.data.mensaje }],
-    herramientas,
+    sistema: sistema(soloInfo),
+    mensajes: mensajesIniciales,
+    herramientas: herramientasActivas,
     handlers,
     tipo: "profesional",
   });

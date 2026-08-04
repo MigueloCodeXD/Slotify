@@ -1,15 +1,124 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f4effa;
-  --foreground: #1e1b2e;
+  --background: #07050f;
+  --foreground: #ece7f6;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-display: var(--font-display), Georgia, serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+}
+
+@theme {
+  --animate-fade-up: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-in: fade-in 0.6s ease-out both;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-slow: float 9s ease-in-out infinite;
+  --animate-blob: blob 16s ease-in-out infinite;
+  --animate-gradient-x: gradient-x 8s ease infinite;
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-scale-in: scale-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-toast: toast-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-card-in: card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-14px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(26px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-13px);
+    }
+  }
+
+  @keyframes blob {
+    0%,
+    100% {
+      transform: translate(0, 0) scale(1);
+    }
+    33% {
+      transform: translate(40px, -30px) scale(1.12);
+    }
+    66% {
+      transform: translate(-30px, 25px) scale(0.92);
+    }
+  }
+
+  @keyframes gradient-x {
+    0%,
+    100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes shimmer {
+    from {
+      background-position: -200% 0;
+    }
+    to {
+      background-position: 200% 0;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.99);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
 }
 
 html {
@@ -19,13 +128,89 @@ html {
 body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
-  /* Fondo morado profesional y moderno */
-  background: radial-gradient(1200px 600px at 15% -10%, #7c3aed 0%, #6d28d9 35%, #4c1d95 70%, #2e1065 100%);
+  /* Fondo violeta oscuro casi negro con luz sutil arriba-izquierda */
+  background:
+    radial-gradient(1100px 720px at 12% -8%, rgba(124, 58, 237, 0.18), transparent 62%),
+    radial-gradient(900px 600px at 96% 4%, rgba(139, 92, 246, 0.1), transparent 55%),
+    linear-gradient(180deg, #0b0817 0%, #07050f 55%, #060411 100%);
   background-attachment: fixed;
   background-repeat: no-repeat;
   min-height: 100vh;
 }
 
+/* ---- Vidrio esmerilado reutilizable ---- */
+.glass {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(160deg, rgba(139, 92, 246, 0.08), rgba(255, 255, 255, 0.04));
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.glass-strong {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(160deg, rgba(139, 92, 246, 0.1), rgba(255, 255, 255, 0.05));
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+.glass-hover {
+  transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.24s ease, box-shadow 0.24s ease;
+}
+.glass-hover:hover {
+  transform: translateY(-3px);
+  border-color: rgba(167, 139, 250, 0.28);
+  box-shadow: 0 18px 40px -20px rgba(124, 58, 237, 0.35);
+}
+
+/* Skeleton con efecto de cristal */
+.skeleton {
+  border-radius: 1rem;
+  background: linear-gradient(100deg, rgba(255, 255, 255, 0.05) 40%, rgba(167, 139, 250, 0.14) 50%, rgba(255, 255, 255, 0.05) 60%);
+  background-size: 200% 100%;
+  animation: shimmer 2.2s linear infinite;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Título serif de marca con degradado sutil */
+.anim-title {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 600;
+  background-image: linear-gradient(110deg, #c4b5fd 0%, #ffffff 30%, #e9d5ff 55%, #d8b4fe 80%, #c4b5fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-size: 200% auto;
+  animation: gradient-x 8s ease infinite;
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+}
+.font-mono {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+.logo-glow {
+  filter: drop-shadow(0 6px 24px rgba(139, 92, 246, 0.4));
+  animation: float 6s ease-in-out infinite;
+}
+
 ::selection {
   background: rgba(168, 85, 247, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.55);
+  background-clip: padding-box;
 }

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
+import { esServiceRole } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 
 function norm(s: string): string {
@@ -16,6 +17,7 @@ function parseRango(text: string): { start: string; end: string } {
 
 export async function resumenRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (!esServiceRole(req)) return json({ error: "No autorizado." }, 401);
 
   const fecha = new Date().toISOString().slice(0, 10);
   const desdeMs = Date.parse(`${fecha}T05:00:00Z`);

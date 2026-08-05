@@ -5,7 +5,7 @@ acceso sin cuenta para clientes (código por correo) y panel privado por
 profesional con copiloto de IA.
 
 ## Stack
-- **Frontend:** `apps/web` — Next.js 16 + TypeScript + Tailwind (morado, moderno)
+- **Frontend:** `src` — Next.js 16 + TypeScript + Tailwind (morado, moderno)
 - **Backend:** `supabase/functions` — Edge Functions (Deno), toda escritura pasa por aquí
 - **Base de datos:** PostgreSQL en Supabase (RLS + `EXCLUDE USING gist` anti doble-reserva)
 - **IA:** Gemini `gemini-flash-latest`, function calling (la IA nunca escribe directo)
@@ -13,7 +13,7 @@ profesional con copiloto de IA.
 
 ## Estructura
 ```
-apps/web/src            → portal cliente (/ , /agendar, /mis-citas, /mi-cita) + panel (/login, /panel)
+src                     → portal cliente (/ , /agendar, /mis-citas, /mi-cita) + panel (/login, /panel)
 supabase/functions      → Edge Functions (crear/cancelar/reprogramar cita, códigos, agenda, copiloto, etc.)
 supabase/migrations     → esquema SQL
 supabase/scripts        → setup-admin.ts
@@ -24,7 +24,7 @@ supabase/scripts        → setup-admin.ts
 ### 1. Variables de entorno
 ```bash
 cp .env.local.example .env.local    # (si existe) o crea tus .env.local
-# Ver apps/web/.env.example y supabase/.env.example
+# Ver .env.example y supabase/.env.example
 ```
 
 ### 2. Aplicar el esquema (una vez)
@@ -61,11 +61,11 @@ ADMIN_EMAIL=admin@negocio.com ADMIN_PASSWORD=mipass123 SUPABASE_URL=... SUPABASE
 
 ### 6. Frontend (local)
 ```bash
-cd apps/web && npm install && npm run dev
+npm install && npm run dev
 ```
 
 ## Variables requeridas
-Ver `supabase/.env.example` y `apps/web/.env.example`.
+Ver `supabase/.env.example` y `.env.example`.
 
 ## Cron: resumen matutino
 El proyecto ya incluye las migraciones para programar `resumen-matutino` a las

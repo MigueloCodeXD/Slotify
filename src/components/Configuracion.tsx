@@ -26,7 +26,20 @@ export function Configuracion() {
   const [rol, setRol] = useState<"admin" | "profesional" | null>(null);
 
   const [invitar, setInvitar] = useState({ nombre: "", email: "" });
-  const [nuevoServicio, setNuevoServicio] = useState({ nombre: "", precio: "", duracion: "" });
+  const [nuevoServicio, setNuevoServicio] = useState({ nombre: "", precio: "", duracion: "", descripcion: "", buffer: "", categoria: "" });
+  const [categorias, setCategorias] = useState<{ id: string; nombre: string; en_uso?: boolean }[]>([]);
+  const [nuevaCategoria, setNuevaCategoria] = useState("");
+  const [editandoServicio, setEditandoServicio] = useState<ServicioPublico | null>(null);
+  const [formServicio, setFormServicio] = useState({
+    id: "",
+    nombre: "",
+    precio: "",
+    duracion: "",
+    buffer: "",
+    descripcion: "",
+    categoria: "",
+    activo: true,
+  });
   const [cargando, setCargando] = useState(true);
   const [perfil, setPerfil] = useState<{ nombre: string; email: string; telefono: string; cedula: string; cargo: string; rol: string }>({
     nombre: "",
@@ -54,13 +67,15 @@ export function Configuracion() {
       setDisponibilidad((rango.dias ?? []).map((d) => ({ ...d, dia_semana: Number(d.dia_semana) })));
 
       const token = (await getTokenSesion()) ?? undefined;
-      const [mis, r, perfilRes] = await Promise.all([
+      const [mis, r, perfilRes, cats] = await Promise.all([
         llamarEdge<{ servicio_ids: string[] }>("configuracion-profesional", { accion: "listar_mis_servicios" }, token),
         getRolProfesional(),
         llamarEdge<{ profesional: { nombre: string; email: string; telefono: string | null; cedula: string | null; cargo: string | null; rol: string } }>("mi-perfil", {}, token),
+        llamarEdge<{ categorias: { id: string; nombre: string }[] }>("gestionar-categorias", { accion: "listar" }, token),
       ]);
       setMisServicios(mis.servicio_ids ?? []);
       setRol(r);
+      setCategorias(cats.categorias ?? []);
       setPerfil({
         nombre: perfilRes.profesional?.nombre ?? "",
         email: perfilRes.profesional?.email ?? "",
@@ -133,6 +148,10 @@ export function Configuracion() {
 
   async function crearServicio(e: React.FormEvent) {
     e.preventDefault();
+    if (nuevoServicio.nombre.trim().length < 2) {
+      notificar("El nombre es obligatorio.", "error");
+      return;
+    }
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge(
@@ -141,13 +160,125 @@ export function Configuracion() {
           nombre: nuevoServicio.nombre,
           precio: Number(nuevoServicio.precio),
           duracion_min: Number(nuevoServicio.duracion),
+          descripcion: nuevoServicio.descripcion || null,
+          buffer_min: nuevoServicio.buffer ? Number(nuevoServicio.buffer) : 0,
+          categoria: nuevoServicio.categoria || null,
         },
         token
       );
-      setNuevoServicio({ nombre: "", precio: "", duracion: "" });
+      setNuevoServicio({ nombre: "", precio: "", duracion: "", descripcion: "", buffer: "", categoria: "" });
       notificar("Servicio creado.", "exito");
-      const s = await serviciosPublicos();
-      setServicios((s.data as ServicioPublico[]) ?? []);
+      await refrescarServicios();
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    }
+  }
+
+  async function refrescarServicios() {
+    const s = await serviciosPublicos();
+    setServicios((s.data as ServicioPublico[]) ?? []);
+  }
+
+  async function crearCategoriaDesdeForm(valor: string): Promise<string | null> {
+    const nombre = valor.trim();
+    if (!nombre) return null;
+    const existente = categorias.find((c) => c.nombre.toLowerCase() === nombre.toLowerCase());
+    if (existente) return existente.nombre;
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge("gestionar-categorias", { accion: "crear", nombre }, token);
+      const cats = await llamarEdge<{ categorias: { id: string; nombre: string }[] }>("gestionar-categorias", { accion: "listar" }, token);
+      setCategorias(cats.categorias ?? []);
+      return nombre;
+    } catch (e) {
+      notificar((e as Error).message, "error");
+      return null;
+    }
+  }
+
+  async function guardarCategoria(e: React.FormEvent) {
+    e.preventDefault();
+    if (nuevaCategoria.trim().length < 1) return;
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge("gestionar-categorias", { accion: "crear", nombre: nuevaCategoria.trim() }, token);
+      setNuevaCategoria("");
+      notificar("Categoría creada.", "exito");
+      const cats = await llamarEdge<{ categorias: { id: string; nombre: string }[] }>("gestionar-categorias", { accion: "listar" }, token);
+      setCategorias(cats.categorias ?? []);
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    }
+  }
+
+  async function renombrarCategoria(id: string, nombre: string) {
+    const nuevo = window.prompt("Nuevo nombre de la categoría", nombre);
+    if (!nuevo || nuevo.trim() === nombre) return;
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge("gestionar-categorias", { accion: "renombrar", id, nombre: nuevo.trim() }, token);
+      notificar("Categoría renombrada.", "exito");
+      const cats = await llamarEdge<{ categorias: { id: string; nombre: string }[] }>("gestionar-categorias", { accion: "listar" }, token);
+      setCategorias(cats.categorias ?? []);
+      await refrescarServicios();
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    }
+  }
+
+  async function eliminarCategoria(c: { id: string; nombre: string; en_uso?: boolean }) {
+    if (c.en_uso) {
+      notificar("No se puede eliminar: hay servicios con esta categoría.", "error");
+      return;
+    }
+    if (!window.confirm(`¿Eliminar la categoría "${c.nombre}"?`)) return;
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge("gestionar-categorias", { accion: "eliminar", id: c.id }, token);
+      notificar("Categoría eliminada.", "exito");
+      const cats = await llamarEdge<{ categorias: { id: string; nombre: string }[] }>("gestionar-categorias", { accion: "listar" }, token);
+      setCategorias(cats.categorias ?? []);
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    }
+  }
+
+  function abrirEditarServicio(s: ServicioPublico) {
+    setEditandoServicio(s);
+    setFormServicio({
+      id: s.id,
+      nombre: s.nombre,
+      precio: String(s.precio),
+      duracion: String(s.duracion_min),
+      buffer: String(s.buffer_min ?? 0),
+      descripcion: s.descripcion ?? "",
+      categoria: s.categoria ?? "",
+      activo: s.activo,
+    });
+  }
+
+  async function guardarEdicionServicio(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editandoServicio) return;
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge(
+        "editar-catalogo",
+        {
+          servicio_id: editandoServicio.id,
+          nombre: formServicio.nombre,
+          precio: Number(formServicio.precio),
+          duracion_min: Number(formServicio.duracion),
+          buffer_min: formServicio.buffer ? Number(formServicio.buffer) : 0,
+          descripcion: formServicio.descripcion || null,
+          categoria: formServicio.categoria || null,
+          activo: formServicio.activo,
+        },
+        token
+      );
+      notificar("Servicio actualizado.", "exito");
+      setEditandoServicio(null);
+      await refrescarServicios();
     } catch (e) {
       notificar((e as Error).message, "error");
     }
@@ -159,8 +290,7 @@ export function Configuracion() {
       const token = (await getTokenSesion()) ?? undefined;
       await llamarEdge("editar-catalogo", { servicio_id: s.id, eliminar: true }, token);
       notificar("Servicio eliminado.", "exito");
-      const sv = await serviciosPublicos();
-      setServicios((sv.data as ServicioPublico[]) ?? []);
+      await refrescarServicios();
     } catch (e) {
       notificar((e as Error).message, "error");
     }
@@ -349,6 +479,15 @@ export function Configuracion() {
                 </button>
                 {rol === "admin" && (
                 <button
+                  onClick={() => abrirEditarServicio(s)}
+                  title="Editar servicio"
+                  className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sm text-zinc-300 transition hover:border-violet-400"
+                >
+                  ✏️
+                </button>
+                )}
+                {rol === "admin" && (
+                <button
                   onClick={() => eliminarServicio(s)}
                   title="Eliminar servicio del catálogo"
                   className="flex h-8 w-8 items-center justify-center rounded-xl border border-rose-300/30 bg-white/[0.04] text-sm text-rose-300 transition hover:bg-rose-500/10"
@@ -448,12 +587,108 @@ export function Configuracion() {
             onChange={(e) => setNuevoServicio({ ...nuevoServicio, duracion: e.target.value })}
             className="border-white/10 bg-white/[0.06] text-zinc-100"
           />
-          <div className="flex items-end">
+          <Campo
+            label="Buffer (min)"
+            type="number"
+            value={nuevoServicio.buffer}
+            onChange={(e) => setNuevoServicio({ ...nuevoServicio, buffer: e.target.value })}
+            className="border-white/10 bg-white/[0.06] text-zinc-100"
+          />
+          <div className="sm:col-span-4">
+            <span className="mb-1 block text-xs font-semibold text-zinc-400">Categoría</span>
+            <div className="flex gap-2">
+              <select
+                value={nuevoServicio.categoria}
+                onChange={(e) => {
+                  if (e.target.value === "__nueva__") {
+                    const nombre = window.prompt("Nueva categoría");
+                    if (nombre && nombre.trim()) void crearCategoriaDesdeForm(nombre).then((creada) => {
+                      if (creada) setNuevoServicio((p) => ({ ...p, categoria: creada }));
+                    });
+                    else e.target.value = "";
+                    return;
+                  }
+                  setNuevoServicio({ ...nuevoServicio, categoria: e.target.value });
+                }}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+              >
+                <option value="">Sin categoría</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
+                  </option>
+                ))}
+                <option value="__nueva__">+ Nueva categoría…</option>
+              </select>
+            </div>
+          </div>
+          <div className="sm:col-span-4">
+            <span className="mb-1 block text-xs font-semibold text-zinc-400">Descripción</span>
+            <textarea
+              value={nuevoServicio.descripcion}
+              onChange={(e) => setNuevoServicio({ ...nuevoServicio, descripcion: e.target.value })}
+              rows={2}
+              className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+              placeholder="Descripción del servicio (opcional)..."
+            />
+          </div>
+          <div className="sm:col-span-4">
             <Boton type="submit" variante="primario" className="w-full">
               Crear
             </Boton>
           </div>
         </form>
+      </Tarjeta>
+      )}
+
+      {rol === "admin" && (
+      <Tarjeta className="p-5 animate-fade-up [animation-delay:300ms]">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-400/15 text-sm">🏷</span>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">
+            Categorías
+          </h2>
+        </div>
+        <form onSubmit={guardarCategoria} className="flex gap-2">
+          <input
+            value={nuevaCategoria}
+            onChange={(e) => setNuevaCategoria(e.target.value)}
+            placeholder="Nueva categoría"
+            className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/25"
+          />
+          <div className="flex items-end">
+            <Boton type="submit" variante="primario">
+              Añadir
+            </Boton>
+          </div>
+        </form>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {categorias.map((c) => (
+            <span
+              key={c.id}
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-sm text-zinc-200"
+            >
+              {c.nombre}
+              <button
+                onClick={() => renombrarCategoria(c.id, c.nombre)}
+                title="Renombrar"
+                className="text-zinc-400 transition hover:text-violet-300"
+              >
+                ✏️
+              </button>
+              <button
+                onClick={() => eliminarCategoria(c)}
+                title={c.en_uso ? "En uso" : "Eliminar"}
+                className="text-zinc-400 transition hover:text-rose-300"
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+          {categorias.length === 0 && (
+            <p className="text-sm text-zinc-500">Aún no hay categorías.</p>
+          )}
+        </div>
       </Tarjeta>
       )}
 
@@ -487,6 +722,113 @@ export function Configuracion() {
           </form>
         </Tarjeta>
       )}
+
+      {editandoServicio && (
+        <ModalServicio onCerrar={() => setEditandoServicio(null)}>
+          <h3 className="font-display text-lg font-semibold text-white">Editar servicio</h3>
+          <form onSubmit={guardarEdicionServicio} className="mt-4 grid gap-3">
+            <Campo
+              label="Nombre"
+              value={formServicio.nombre}
+              onChange={(e) => setFormServicio({ ...formServicio, nombre: e.target.value })}
+              className="border-white/10 bg-white/[0.06] text-zinc-100"
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Campo
+                label="Precio ($)"
+                type="number"
+                value={formServicio.precio}
+                onChange={(e) => setFormServicio({ ...formServicio, precio: e.target.value })}
+                className="border-white/10 bg-white/[0.06] text-zinc-100"
+              />
+              <Campo
+                label="Duración (min)"
+                type="number"
+                value={formServicio.duracion}
+                onChange={(e) => setFormServicio({ ...formServicio, duracion: e.target.value })}
+                className="border-white/10 bg-white/[0.06] text-zinc-100"
+              />
+              <Campo
+                label="Buffer (min)"
+                type="number"
+                value={formServicio.buffer}
+                onChange={(e) => setFormServicio({ ...formServicio, buffer: e.target.value })}
+                className="border-white/10 bg-white/[0.06] text-zinc-100"
+              />
+            </div>
+            <div>
+              <span className="mb-1 block text-xs font-semibold text-zinc-400">Categoría</span>
+              <select
+                value={formServicio.categoria}
+                onChange={(e) => {
+                  if (e.target.value === "__nueva__") {
+                    const nombre = window.prompt("Nueva categoría");
+                    if (nombre && nombre.trim()) {
+                      void crearCategoriaDesdeForm(nombre).then((creada) => {
+                        if (creada) setFormServicio((p) => ({ ...p, categoria: creada }));
+                      });
+                    }
+                    return;
+                  }
+                  setFormServicio({ ...formServicio, categoria: e.target.value });
+                }}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+              >
+                <option value="">Sin categoría</option>
+                {categorias.map((c) => (
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
+                  </option>
+                ))}
+                <option value="__nueva__">+ Nueva categoría…</option>
+              </select>
+            </div>
+            <div>
+              <span className="mb-1 block text-xs font-semibold text-zinc-400">Descripción</span>
+              <textarea
+                value={formServicio.descripcion}
+                onChange={(e) => setFormServicio({ ...formServicio, descripcion: e.target.value })}
+                rows={2}
+                className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-zinc-200">
+              <input
+                type="checkbox"
+                checked={formServicio.activo}
+                onChange={(e) => setFormServicio({ ...formServicio, activo: e.target.checked })}
+                className="h-4 w-4 accent-violet-500"
+              />
+              Activo (aparece en la página pública)
+            </label>
+            <div className="mt-2 flex gap-2">
+              <Boton type="submit" variante="primario" className="flex-1">
+                Guardar
+              </Boton>
+              <Boton variante="claro" onClick={() => setEditandoServicio(null)}>
+                Cancelar
+              </Boton>
+            </div>
+          </form>
+        </ModalServicio>
+      )}
+    </div>
+  );
+}
+
+function ModalServicio({ children, onCerrar }: { children: React.ReactNode; onCerrar: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+        <button
+          onClick={onCerrar}
+          className="float-right rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+          aria-label="Cerrar"
+        >
+          ✕
+        </button>
+        {children}
+      </div>
     </div>
   );
 }

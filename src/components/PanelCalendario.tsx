@@ -81,7 +81,7 @@ function lunesDe(d: Date): Date {
   return a;
 }
 
-export function PanelCalendario() {
+export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?: string | null }) {
   const { notificar } = useToast();
   const [mes, setMes] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [vista, setVista] = useState<"mes" | "semana">("mes");
@@ -143,7 +143,7 @@ export function PanelCalendario() {
       const hasta = fechaLocal(ultimoDia.toISOString()).slice(0, 10);
       const res = await llamarEdge<{ citas: CitaProfesional[]; bloqueos: Bloqueo[] }>(
         "consultar-agenda-dia",
-        { desde, hasta },
+        { desde, hasta, profesional_id: profesionalIdTarget ?? undefined },
         token
       );
       setCitas(res.citas ?? []);
@@ -154,7 +154,7 @@ export function PanelCalendario() {
     } finally {
       setCargando(false);
     }
-  }, [mes, vista, semanaBase, notificar]);
+  }, [mes, vista, semanaBase, notificar, profesionalIdTarget]);
 
   useEffect(() => {
     const cita = citas.find((c) => c.id === selId);
@@ -181,9 +181,9 @@ export function PanelCalendario() {
     const token = (await getTokenSesion()) ?? undefined;
     try {
       if (bloqueoEditId) {
-        await llamarEdge("actualizar-bloqueo", { id: bloqueoEditId, start, end, motivo: bloqueoForm.motivo }, token);
+        await llamarEdge("actualizar-bloqueo", { id: bloqueoEditId, start, end, motivo: bloqueoForm.motivo, profesional_id: profesionalIdTarget ?? undefined }, token);
       } else {
-        await llamarEdge("crear-bloqueo", { start, end, motivo: bloqueoForm.motivo }, token);
+        await llamarEdge("crear-bloqueo", { start, end, motivo: bloqueoForm.motivo, profesional_id: profesionalIdTarget ?? undefined }, token);
       }
       setBloqueoForm({ fecha: "", hasta: "", inicio: "", fin: "", motivo: "" });
       setBloqueoEditId(null);
@@ -218,7 +218,7 @@ export function PanelCalendario() {
     const confirmado = window.confirm(`¿Eliminar este bloqueo${b.motivo ? ` (${b.motivo})` : ""}?`);
     if (!confirmado) return;
     try {
-      await llamarEdge("eliminar-bloqueo", { id: b.id }, token);
+      await llamarEdge("eliminar-bloqueo", { id: b.id, profesional_id: profesionalIdTarget ?? undefined }, token);
       if (bloqueoEditId === b.id) cancelarEditarBloqueo();
       await cargar();
     } catch (err) {
@@ -247,7 +247,7 @@ export function PanelCalendario() {
         "consultar-disponibilidad",
         {
           servicio_id: cita.servicio?.id,
-          profesional_id: cita.profesional_id,
+          profesional_id: profesionalIdTarget ?? cita.profesional_id,
           fecha: dia,
           dias: 1,
         },
@@ -267,7 +267,7 @@ export function PanelCalendario() {
     setReproOcupado(false);
     try {
       const token = (await getTokenSesion()) ?? undefined;
-      await llamarEdge("reprogramar-cita-profesional", { cita_id: reproId, nuevo_start: reproSlot.start }, token);
+      await llamarEdge("reprogramar-cita-profesional", { cita_id: reproId, nuevo_start: reproSlot.start, profesional_id: profesionalIdTarget ?? undefined }, token);
       setReproId(null);
       setSelId(null);
       await cargar();
@@ -283,7 +283,7 @@ export function PanelCalendario() {
     setDetalleMsg(null);
     try {
       const token = (await getTokenSesion()) ?? undefined;
-      await llamarEdge("actualizar-cita-profesional", { cita_id: selId, estado }, token);
+      await llamarEdge("actualizar-cita-profesional", { cita_id: selId, estado, profesional_id: profesionalIdTarget ?? undefined }, token);
       await cargar();
     } catch (e) {
       setDetalleMsg((e as Error).message);
@@ -295,9 +295,26 @@ export function PanelCalendario() {
     setDetalleMsg(null);
     try {
       const token = (await getTokenSesion()) ?? undefined;
-      await llamarEdge("actualizar-cita-profesional", { cita_id: selId, notas: notasDraft }, token);
+      await llamarEdge("actualizar-cita-profesional", { cita_id: selId, notas: notasDraft, profesional_id: profesionalIdTarget ?? undefined }, token);
       setCitas((prev) => prev.map((c) => (c.id === selId ? { ...c, notas: notasDraft } : c)));
       setDetalleMsg("Notas guardadas.");
+    } catch (e) {
+      setDetalleMsg((e as Error).message);
+    }
+  }
+
+  async function eliminarCita(id: string) {
+    const confirmado = window.confirm(
+      "¿Eliminar esta cita definitivamente? Se enviará un correo de cancelación al cliente."
+    );
+    if (!confirmado) return;
+    setDetalleMsg(null);
+    try {
+      const token = (await getTokenSesion()) ?? undefined;
+      await llamarEdge("eliminar-cita-profesional", { cita_id: id, profesional_id: profesionalIdTarget ?? undefined }, token);
+      setSelId(null);
+      notificar("Cita eliminada.", "exito");
+      await cargar();
     } catch (e) {
       setDetalleMsg((e as Error).message);
     }
@@ -310,7 +327,7 @@ export function PanelCalendario() {
       const token = (await getTokenSesion()) ?? undefined;
       const res = await llamarEdge<{ cliente: Profesional | null; citas: CitaProfesional[] }>(
         "historial-cliente-profesional",
-        { cliente_id: clienteId },
+        { cliente_id: clienteId, profesional_id: profesionalIdTarget ?? undefined },
         token
       );
       setHistorial({ cliente: res.cliente, citas: res.citas ?? [] });
@@ -907,6 +924,9 @@ export function PanelCalendario() {
                     {b.texto}
                   </Boton>
                 ))}
+                <Boton variante="peligro" onClick={() => eliminarCita(cita.id)}>
+                  🗑 Eliminar
+                </Boton>
               </div>
             </div>
           </div>
@@ -983,6 +1003,7 @@ export function PanelCalendario() {
 
       {nuevaCita && (
         <NuevaCita
+          profesionalId={profesionalIdTarget}
           onCerrar={() => setNuevaCita(false)}
           onCreada={() => {
             setNuevaCita(false);

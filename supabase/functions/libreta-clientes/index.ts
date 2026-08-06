@@ -5,6 +5,8 @@ import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 
 const schema = z.object({
+  accion: z.enum(["listar", "eliminar"]).default("listar"),
+  id: z.string().uuid().optional(),
   busqueda: z.string().max(100).optional(),
   limite: z.number().int().min(1).max(200).optional(),
 });
@@ -51,6 +53,17 @@ export async function libretaClientesRequest(req: Request): Promise<Response> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
   const d = parsed.data;
+
+  if (d.accion === "eliminar") {
+    if (!d.id) return json({ error: "Falta el id del cliente." }, 400);
+    const { data: existe } = await admin.from("clientes").select("id").eq("id", d.id).single();
+    if (!existe) return json({ error: "Cliente no encontrado." }, 404);
+    const { error: errCitas } = await admin.from("citas").delete().eq("cliente_id", d.id);
+    if (errCitas) return json({ error: "No se pudieron eliminar las citas del cliente." }, 500);
+    const { error: errCliente } = await admin.from("clientes").delete().eq("id", d.id);
+    if (errCliente) return json({ error: "No se pudo eliminar el cliente." }, 500);
+    return json({ ok: true });
+  }
 
   const [clientesRes, citasRes] = await Promise.all([
     admin.from("clientes").select("id, nombre, email, telefono").order("created_at"),

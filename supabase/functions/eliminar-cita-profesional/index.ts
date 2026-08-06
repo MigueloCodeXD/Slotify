@@ -21,7 +21,7 @@ function parseRango(text: string): { start: string; end: string } {
   return { start: parse(parts[0]!), end: parse(parts[1]!) };
 }
 
-export async function cancelarProfRequest(req: Request): Promise<Response> {
+export async function eliminarCitaProfRequest(req: Request): Promise<Response> {
   const cors = handleCors(req);
   if (cors) return cors;
 
@@ -50,15 +50,9 @@ export async function cancelarProfRequest(req: Request): Promise<Response> {
     .single();
   if (error || !cita) return json({ error: "No se encontró la cita." }, 404);
   if (cita.profesional_id !== target.id) return json({ error: "No puedes gestionar esa cita." }, 403);
-  if (cita.estado !== "confirmada") return json({ error: "Esta cita ya no es cancelable." }, 400);
-
-  const { error: eUp } = await admin
-    .from("citas")
-    .update({ estado: "cancelada" })
-    .eq("id", cita.id);
-  if (eUp) return json({ error: "No se pudo cancelar la cita." }, 500);
 
   const rango = parseRango(cita.rango_tiempo as string);
+
   await enviarCorreo("cita_cancelada_cliente", {
     to: cita.cliente.email,
     nombre: cita.cliente.nombre,
@@ -67,12 +61,15 @@ export async function cancelarProfRequest(req: Request): Promise<Response> {
     fecha: rango.start,
   }).catch(() => {});
 
-  return json({ ok: true });
+  const { error: eDel } = await admin.from("citas").delete().eq("id", cita.id);
+  if (eDel) return json({ error: "No se pudo eliminar la cita." }, 500);
+
+  return json({ ok: true, eliminada: true });
 }
 
 serve(async (req) => {
   try {
-    const res = await cancelarProfRequest(req);
+    const res = await eliminarCitaProfRequest(req);
     const body = await res.text();
     return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {

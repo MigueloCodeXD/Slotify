@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 
@@ -11,6 +11,7 @@ const HORAS_CONFIRMAR = 6;
 const schema = z.object({
   servicio_id: z.string().uuid(),
   start: z.string().datetime(),
+  profesional_id: z.string().uuid().optional().nullable(),
   cliente_id: z.string().uuid().optional(),
   email_cliente: z.string().email().max(255).optional(),
   nombre_cliente: z.string().min(2).max(120).optional(),
@@ -40,6 +41,10 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos", detalle: parsed.error.flatten() }, 400);
   const d = parsed.data;
+
+  const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
 
   // Cliente: por id, o por email (reutiliza/crea)
   let clienteId = d.cliente_id ?? null;
@@ -75,15 +80,15 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     .single();
   if (!servicio || !servicio.activo) return json({ error: "Servicio no disponible" }, 400);
 
-  // El profesional debe ofrecer el servicio (o ser admin)
-  if (prof.rol !== "admin") {
+  // El profesional debe ofrecer el servicio (o el admin operando sobre él)
+  if (target.rol !== "admin") {
     const { data: ps } = await admin
       .from("profesional_servicios")
       .select("profesional_id")
-      .eq("profesional_id", prof.id)
+      .eq("profesional_id", target.id)
       .eq("servicio_id", d.servicio_id)
       .maybeSingle();
-    if (!ps) return json({ error: "No ofreces ese servicio." }, 400);
+    if (!ps) return json({ error: `${target.nombre} no ofrece ese servicio.` }, 400);
   }
 
   const cfg = await getConfig();
@@ -93,7 +98,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
 
   const disp = await consultarDisponibilidad({
     servicioId: d.servicio_id,
-    profesionalId: prof.id,
+    profesionalId: target.id,
     start: startMs,
     end: startMs + servicio.duracion_min * 60_000,
   });
@@ -107,7 +112,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     .from("citas")
     .insert({
       cliente_id: clienteId,
-      profesional_id: prof.id,
+      profesional_id: target.id,
       servicio_id: servicio.id,
       rango_tiempo: rangeStr(startMs, endMs + bufferMs),
       estado: "pendiente",
@@ -134,7 +139,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     to: cliente.email,
     nombre: cliente.nombre,
     servicio: servicio.nombre,
-    profesional: prof.nombre,
+    profesional: target.nombre,
     fecha: new Date(startMs).toISOString(),
     link_confirmar: linkConfirmar,
     link_gestion: linkGestion,

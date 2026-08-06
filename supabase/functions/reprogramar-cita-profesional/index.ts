@@ -2,13 +2,14 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 
 const schema = z.object({
   cita_id: z.string().uuid(),
   nuevo_start: z.string().datetime(),
+  profesional_id: z.string().uuid().optional().nullable(),
 });
 
 function norm(s: string): string {
@@ -33,13 +34,17 @@ export async function reprogramarProfRequest(req: Request): Promise<Response> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
 
+  const objetivo = await resolverProfesionalObjetivo(prof, parsed.data.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
+
   const { data: cita, error } = await admin
     .from("citas")
     .select("*, cliente:clientes(*), servicio:servicios(*), profesional:profesionales(*)")
     .eq("id", parsed.data.cita_id)
     .single();
   if (error || !cita) return json({ error: "No se encontró la cita." }, 404);
-  if (cita.profesional_id !== prof.id) return json({ error: "No puedes gestionar esa cita." }, 403);
+  if (cita.profesional_id !== target.id) return json({ error: "No puedes gestionar esa cita." }, 403);
   if (cita.estado !== "confirmada") return json({ error: "Esta cita ya no es reprogramable." }, 400);
 
   const cfg = await getConfig();

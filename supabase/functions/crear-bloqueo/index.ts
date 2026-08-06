@@ -2,10 +2,11 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { citaConflicto } from "../_shared/disponibilidad.ts";
 
 const schema = z.object({
+  profesional_id: z.string().uuid().optional().nullable(),
   start: z.string().datetime(),
   end: z.string().datetime(),
   motivo: z.string().max(200).optional().nullable(),
@@ -30,13 +31,17 @@ export async function crearBloqueoRequest(req: Request): Promise<Response> {
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
   const d = parsed.data;
 
+  const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
+
   const start = Date.parse(d.start);
   const end = Date.parse(d.end);
   if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
     return json({ error: "Rango inválido." }, 400);
   }
 
-  const conflicto = await citaConflicto({ profesionalId: prof.id, start, end });
+  const conflicto = await citaConflicto({ profesionalId: target.id, start, end });
   if (conflicto) {
     return json(
       {
@@ -50,7 +55,7 @@ export async function crearBloqueoRequest(req: Request): Promise<Response> {
   const rango = `["${new Date(start).toISOString()}","${new Date(end).toISOString()}")`;
   const { data, error } = await admin
     .from("bloqueos")
-    .insert({ profesional_id: prof.id, rango_tiempo: rango, motivo: d.motivo ?? null })
+    .insert({ profesional_id: target.id, rango_tiempo: rango, motivo: d.motivo ?? null })
     .select("id")
     .single();
   if (error) return json({ error: "No se pudo crear el bloqueo." }, 500);

@@ -98,6 +98,20 @@ export function Clientes() {
 
   const formatter = new Intl.NumberFormat("es", { style: "currency", currency: "USD" });
 
+  async function eliminarCliente(c: ClienteLibreta) {
+    const citas = c.total === 1 ? "1 cita" : `${c.total} citas`;
+    if (!window.confirm(`¿Eliminar a "${c.nombre}"? Se borrarán sus ${citas} e historial de forma definitiva.`)) return;
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge("libreta-clientes", { accion: "eliminar", id: c.id }, token);
+      notificar("Cliente eliminado.", "exito");
+      if (abierto === c.id) setAbierto(null);
+      await cargar(busqueda);
+    } catch (err) {
+      notificar((err as Error).message, "error");
+    }
+  }
+
   if (cargando) {
     return (
       <div className="flex justify-center py-16">
@@ -182,6 +196,12 @@ export function Clientes() {
                         })}
                       </ul>
                     )}
+                    <button
+                      onClick={() => eliminarCliente(c)}
+                      className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-rose-400/25 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20"
+                    >
+                      Eliminar cliente
+                    </button>
                   </div>
                 )}
               </li>

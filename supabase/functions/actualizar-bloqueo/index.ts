@@ -2,11 +2,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { citaConflicto } from "../_shared/disponibilidad.ts";
 
 const schema = z.object({
   id: z.string().uuid(),
+  profesional_id: z.string().uuid().optional().nullable(),
   start: z.string().datetime().optional(),
   end: z.string().datetime().optional(),
   motivo: z.string().max(200).optional().nullable(),
@@ -31,13 +32,17 @@ export async function actualizarBloqueoRequest(req: Request): Promise<Response> 
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
   const d = parsed.data;
 
+  const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
+
   const { data: bloqueo } = await admin
     .from("bloqueos")
     .select("id, profesional_id, rango_tiempo, motivo")
     .eq("id", d.id)
     .single();
   if (!bloqueo) return json({ error: "No se encontró el bloqueo." }, 404);
-  if (bloqueo.profesional_id !== prof.id) return json({ error: "No puedes gestionar ese bloqueo." }, 403);
+  if (bloqueo.profesional_id !== target.id) return json({ error: "No puedes gestionar ese bloqueo." }, 403);
 
   const campos: Record<string, unknown> = {};
   const cambioRango = d.start !== undefined || d.end !== undefined;
@@ -48,7 +53,7 @@ export async function actualizarBloqueoRequest(req: Request): Promise<Response> 
     if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
       return json({ error: "Rango inválido." }, 400);
     }
-    const conflicto = await citaConflicto({ profesionalId: prof.id, start, end });
+    const conflicto = await citaConflicto({ profesionalId: target.id, start, end });
     if (conflicto) {
       return json(
         {

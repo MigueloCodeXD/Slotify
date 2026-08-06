@@ -2,11 +2,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 
 const schema = z.object({
   desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   hasta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  profesional_id: z.string().uuid().optional().nullable(),
 });
 
 const OFF = 5 * 3600 * 1000;
@@ -41,6 +42,10 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
   const d = parsed.data;
 
+  const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
+
   const desdeMs = Date.parse(`${d.desde}T05:00:00Z`);
   const hastaMs = Date.parse(`${d.hasta}T05:00:00Z`) + 24 * 3600 * 1000;
   const ventana = `["${new Date(desdeMs).toISOString()}","${new Date(hastaMs).toISOString()}")`;
@@ -48,7 +53,7 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
   const { data: citas, error } = await admin
     .from("citas")
     .select("id, profesional_id, rango_tiempo, estado, notas, servicio:servicios(id,nombre,duracion_min), cliente:clientes(id,nombre,email,telefono)")
-    .eq("profesional_id", prof.id)
+    .eq("profesional_id", target.id)
     .filter("rango_tiempo", "ov", ventana);
 
   if (error) return json({ error: "No se pudo consultar la agenda." }, 500);
@@ -56,7 +61,7 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
   const { data: bloqueos } = await admin
     .from("bloqueos")
     .select("id, rango_tiempo, motivo")
-    .eq("profesional_id", prof.id)
+    .eq("profesional_id", target.id)
     .filter("rango_tiempo", "ov", ventana);
 
   const citasOut = (citas ?? []).map((c) => ({

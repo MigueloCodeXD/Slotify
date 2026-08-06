@@ -2,9 +2,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 
-const schema = z.object({ cliente_id: z.string().uuid() });
+const schema = z.object({
+  cliente_id: z.string().uuid(),
+  profesional_id: z.string().uuid().optional().nullable(),
+});
 
 function norm(s: string): string {
   return s.trim().replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00");
@@ -35,6 +38,10 @@ export async function historialClienteRequest(req: Request): Promise<Response> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
 
+  const objetivo = await resolverProfesionalObjetivo(prof, parsed.data.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
+
   const { data: cliente } = await admin
     .from("clientes")
     .select("id, nombre, email, telefono")
@@ -45,7 +52,7 @@ export async function historialClienteRequest(req: Request): Promise<Response> {
   const { data: citas, error } = await admin
     .from("citas")
     .select("id, rango_tiempo, estado, servicio:servicios(id,nombre,precio,duracion_min)")
-    .eq("profesional_id", prof.id)
+    .eq("profesional_id", target.id)
     .eq("cliente_id", cliente.id)
     .order("rango_tiempo", { ascending: false })
     .limit(100);

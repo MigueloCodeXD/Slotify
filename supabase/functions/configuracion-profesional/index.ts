@@ -2,10 +2,11 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 
 const schema = z.object({
   accion: z.enum(["listar_disponibilidad", "guardar_disponibilidad", "asignar_servicios", "listar_mis_servicios"]),
+  profesional_id: z.string().uuid().optional().nullable(),
   dias: z
     .array(
       z.object({
@@ -37,12 +38,16 @@ export async function configProfRequest(req: Request): Promise<Response> {
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
   const d = parsed.data;
 
+  const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
+
   switch (d.accion) {
     case "listar_disponibilidad": {
       const { data } = await admin
         .from("disponibilidad_profesional")
         .select("id, dia_semana, hora_inicio, hora_fin")
-        .eq("profesional_id", prof.id)
+        .eq("profesional_id", target.id)
         .order("dia_semana");
       return json({ dias: (data ?? []).map((x) => ({ ...x, hora_inicio: x.hora_inicio.slice(0, 5), hora_fin: x.hora_fin.slice(0, 5) })) });
     }
@@ -51,10 +56,10 @@ export async function configProfRequest(req: Request): Promise<Response> {
       for (const dia of d.dias) {
         if (dia.hora_fin <= dia.hora_inicio) return json({ error: "Rango horario inválido." }, 400);
       }
-      await admin.from("disponibilidad_profesional").delete().eq("profesional_id", prof.id);
+      await admin.from("disponibilidad_profesional").delete().eq("profesional_id", target.id);
       if (d.dias.length > 0) {
         const { error } = await admin.from("disponibilidad_profesional").insert(
-          d.dias.map((x) => ({ dia_semana: x.dia_semana, hora_inicio: x.hora_inicio.slice(0, 5), hora_fin: x.hora_fin.slice(0, 5), profesional_id: prof.id }))
+          d.dias.map((x) => ({ dia_semana: x.dia_semana, hora_inicio: x.hora_inicio.slice(0, 5), hora_fin: x.hora_fin.slice(0, 5), profesional_id: target.id }))
         );
         if (error) return json({ error: "No se pudo guardar la disponibilidad." }, 500);
       }
@@ -64,15 +69,15 @@ export async function configProfRequest(req: Request): Promise<Response> {
       const { data } = await admin
         .from("profesional_servicios")
         .select("servicio_id")
-        .eq("profesional_id", prof.id);
+        .eq("profesional_id", target.id);
       return json({ servicio_ids: (data ?? []).map((x) => x.servicio_id) });
     }
     case "asignar_servicios": {
       if (!d.servicio_ids) return json({ error: "Faltan servicios." }, 400);
-      await admin.from("profesional_servicios").delete().eq("profesional_id", prof.id);
+      await admin.from("profesional_servicios").delete().eq("profesional_id", target.id);
       if (d.servicio_ids.length > 0) {
         const { error } = await admin.from("profesional_servicios").insert(
-          d.servicio_ids.map((servicio_id) => ({ profesional_id: prof.id, servicio_id }))
+          d.servicio_ids.map((servicio_id) => ({ profesional_id: target.id, servicio_id }))
         );
         if (error) return json({ error: "No se pudo asignar." }, 500);
       }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
@@ -23,6 +24,7 @@ interface ProfGestion {
 
 export function Profesionales() {
   const { notificar } = useToast();
+  const router = useRouter();
   const [profesionales, setProfesionales] = useState<ProfGestion[]>([]);
   const [servicios, setServicios] = useState<ServicioPublico[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -248,6 +250,9 @@ export function Profesionales() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
+              <Boton variante="primario" className="px-3 py-1.5 text-xs" onClick={() => router.push(`/panel/profesionales/${p.id}`)}>
+                Gestionar
+              </Boton>
               <Boton variante="secundario" className="px-3 py-1.5 text-xs" onClick={() => abrirEditar(p)}>
                 Editar
               </Boton>

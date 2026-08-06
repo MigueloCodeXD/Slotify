@@ -2,10 +2,11 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
-import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 
 const schema = z.object({
   cita_id: z.string().uuid(),
+  profesional_id: z.string().uuid().optional().nullable(),
   estado: z.enum(["confirmada", "cancelada", "completada", "no_show"]).optional(),
   notas: z.string().max(500).optional().nullable(),
 });
@@ -28,13 +29,17 @@ export async function actualizarCitaProfRequest(req: Request): Promise<Response>
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
 
+  const objetivo = await resolverProfesionalObjetivo(prof, parsed.data.profesional_id);
+  if ("error" in objetivo) return objetivo.error;
+  const target = objetivo.data;
+
   const { data: cita } = await admin
     .from("citas")
     .select("id, profesional_id, estado")
     .eq("id", parsed.data.cita_id)
     .single();
   if (!cita) return json({ error: "No se encontró la cita." }, 404);
-  if (cita.profesional_id !== prof.id) return json({ error: "No puedes gestionar esa cita." }, 403);
+  if (cita.profesional_id !== target.id) return json({ error: "No puedes gestionar esa cita." }, 403);
 
   const campos: Record<string, unknown> = {};
   if (parsed.data.estado !== undefined) {

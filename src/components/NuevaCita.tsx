@@ -11,9 +11,11 @@ import type { ServicioPublico, Slot } from "@/types";
 const TZ = "America/Bogota";
 
 export default function NuevaCita({
+  profesionalId,
   onCerrar,
   onCreada,
 }: {
+  profesionalId?: string | null;
   onCerrar: () => void;
   onCreada: () => void;
 }) {
@@ -30,19 +32,22 @@ export default function NuevaCita({
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creada, setCreada] = useState<string | null>(null);
-  const [profId, setProfId] = useState<string | null>(null);
+  const [profId, setProfId] = useState<string | null>(profesionalId ?? null);
 
   useEffect(() => {
     (async () => {
       const token = (await getTokenSesion()) ?? undefined;
-      const perfil = await llamarEdge<{ profesional: { id: string } }>("mi-perfil", {}, token).catch(() => null);
-      setProfId(perfil?.profesional?.id ?? null);
+      let id = profesionalId ?? null;
+      if (!id) {
+        const perfil = await llamarEdge<{ profesional: { id: string } }>("mi-perfil", {}, token).catch(() => null);
+        id = perfil?.profesional?.id ?? null;
+      }
+      setProfId(id);
       const s = await serviciosPublicos();
       const lista = (s.data as ServicioPublico[]) ?? [];
-      const id = perfil?.profesional?.id ?? null;
       setServicios(id ? lista.filter((x) => x.activo && x.profesionales_ids.includes(id)) : lista.filter((x) => x.activo));
     })();
-  }, []);
+  }, [profesionalId]);
 
   const dias = useMemo(() => diasProximos(14, TZ), []);
 
@@ -86,6 +91,7 @@ export default function NuevaCita({
         {
           servicio_id: servicio.id,
           start: slot.start,
+          profesional_id: profId ?? undefined,
           email_cliente: email.trim(),
           nombre_cliente: nombre.trim(),
           telefono_cliente: telefono.trim() || null,

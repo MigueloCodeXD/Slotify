@@ -14,7 +14,7 @@ export async function getUserFromRequest(req: Request): Promise<string | null> {
 export async function getProfesionalByUser(userId: string) {
   const { data, error } = await admin
     .from("profesionales")
-    .select("id, nombre, email, rol, activo, telefono, foto_url")
+    .select("id, nombre, email, rol, activo, telefono, foto_url, cedula")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) return { data: null, error };
@@ -40,6 +40,7 @@ export type ProfesionalBase = {
   activo: boolean;
   telefono: string | null;
   foto_url: string | null;
+  cedula: string | null;
 };
 
 // Resuelve el profesional sobre el que opera una petición.
@@ -55,7 +56,7 @@ export async function resolverProfesionalObjetivo(
   }
   const { data, error } = await admin
     .from("profesionales")
-    .select("id, nombre, email, rol, activo, telefono, foto_url")
+    .select("id, nombre, email, rol, activo, telefono, foto_url, cedula")
     .eq("id", objetivoId)
     .maybeSingle();
   if (error || !data) {

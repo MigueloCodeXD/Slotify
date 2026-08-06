@@ -60,6 +60,7 @@ export interface Profesional {
   foto_url: string | null;
   rol: "admin" | "profesional";
   activo: boolean;
+  cedula?: string | null;
 }
 
 export interface Servicio {

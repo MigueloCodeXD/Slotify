@@ -110,6 +110,7 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
   const [historialCargando, setHistorialCargando] = useState(false);
   const [detalleMsg, setDetalleMsg] = useState<string | null>(null);
   const [nuevaCita, setNuevaCita] = useState(false);
+  const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
 
   const reproDias = useMemo(() => diasProximos(14, TZ), []);
 
@@ -499,8 +500,14 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
             <div className="grid grid-cols-7 gap-px bg-white/[0.06]">
               {diasSemana.map((d) => {
                 const { citas: delDia, bloqueos: bloqueosDia, esHoy } = eventosDelDia(d);
+                const extraSemana = delDia.length + bloqueosDia.length;
                 return (
-                  <div key={d.toISOString()} className="min-h-[140px] bg-[#0b0817]/90 p-1.5">
+                  <div
+                    key={d.toISOString()}
+                    onClick={() => extraSemana > 0 && setDiaAbierto(keyDia(d))}
+                    title={extraSemana > 0 ? "Ver citas del día" : undefined}
+                    className={`min-h-[140px] bg-[#0b0817]/90 p-1.5 ${extraSemana > 0 ? "cursor-pointer" : ""}`}
+                  >
                     <div className="flex flex-col items-center gap-0.5 border-b border-white/[0.06] pb-1.5 text-center">
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs font-semibold ${
@@ -573,9 +580,11 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 return (
                   <div
                     key={d.toISOString()}
+                    onClick={() => extra > 0 && setDiaAbierto(keyDia(d))}
+                    title={extra > 0 ? "Ver citas del día" : undefined}
                     className={`flex min-h-[64px] flex-col gap-1 bg-[#0b0817]/80 p-1.5 transition-colors duration-200 hover:bg-white/[0.04] sm:min-h-[92px] ${
                       fueraMes ? "bg-transparent" : ""
-                    }`}
+                    } ${extra > 0 ? "cursor-pointer" : ""}`}
                   >
                     <div className="flex items-center justify-between">
                       <span
@@ -620,8 +629,8 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                         </div>
                       ))}
                       {delDia.length > 2 && (
-                        <div className="px-1.5 font-mono text-[10px] font-semibold text-zinc-500">
-                          +{delDia.length - 2} más
+                        <div className="px-1.5 font-mono text-[10px] font-semibold text-violet-300/80">
+                          +{delDia.length - 2} más…
                         </div>
                       )}
                     </div>
@@ -823,6 +832,79 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 <p className="py-6 text-center text-sm text-zinc-400">
                   No hay horarios disponibles ese día. Prueba con otro.
                 </p>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ---- Detalle del día ---- */}
+      {diaAbierto && (() => {
+        const delDia = citas
+          .filter((c) => fechaLocal(c.start) === diaAbierto)
+          .sort((a, b) => a.start.localeCompare(b.start));
+        const bloqueosDia = bloqueos.filter((b) => fechaLocal(b.start) === diaAbierto);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
+            <div className="glass-strong max-h-[85vh] w-full max-w-lg overflow-auto rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-display text-lg font-semibold capitalize text-white">
+                    {new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(new Date(diaAbierto))}
+                  </h3>
+                  <p className="text-sm text-zinc-400">
+                    {delDia.length} cita{delDia.length === 1 ? "" : "s"}
+                    {bloqueosDia.length > 0 && ` · ${bloqueosDia.length} bloqueo${bloqueosDia.length === 1 ? "" : "s"}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setDiaAbierto(null)}
+                  className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+                  aria-label="Cerrar"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {delDia.length === 0 && bloqueosDia.length === 0 ? (
+                <p className="py-8 text-center text-sm text-zinc-400">Este día no tiene citas ni bloqueos.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {bloqueosDia.map((b) => (
+                    <li
+                      key={`b-${b.id}`}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-sm"
+                    >
+                      <span className="font-mono text-rose-200">
+                        🔒 {fmtHora(b.start)}–{fmtHora(b.end)}
+                      </span>
+                      {b.motivo && <span className="text-xs text-rose-200/70">{b.motivo}</span>}
+                    </li>
+                  ))}
+                  {delDia.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        onClick={() => {
+                          setDiaAbierto(null);
+                          setSelId(c.id);
+                        }}
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm transition hover:bg-white/[0.08]"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-zinc-100">
+                            <span className="font-mono text-violet-300">{fmtHora(c.start)}</span> · {c.cliente?.nombre}
+                          </p>
+                          <p className="truncate text-xs text-zinc-400">{c.servicio?.nombre}</p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase ${TONO_ESTADO[c.estado] ?? TONO_ESTADO.confirmada}`}
+                        >
+                          {c.estado === "no_show" ? "No asistió" : c.estado}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           </div>

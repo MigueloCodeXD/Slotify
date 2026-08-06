@@ -7,7 +7,8 @@ import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 const schema = z.object({
   nombre: z.string().min(2).max(120).optional(),
   telefono: z.string().max(30).nullable().optional(),
-  foto_url: z.string().url().max(500).nullable().optional(),
+  cedula: z.string().max(30).nullable().optional(),
+  foto_url: z.string().max(500).nullable().optional(),
 });
 
 export async function actualizarPerfilRequest(req: Request): Promise<Response> {
@@ -32,6 +33,7 @@ export async function actualizarPerfilRequest(req: Request): Promise<Response> {
   const campos: Record<string, unknown> = {};
   if (d.nombre !== undefined) campos.nombre = d.nombre;
   if (d.telefono !== undefined) campos.telefono = d.telefono;
+  if (d.cedula !== undefined) campos.cedula = d.cedula;
   if (d.foto_url !== undefined) campos.foto_url = d.foto_url;
   if (Object.keys(campos).length === 0) return json({ ok: true });
 

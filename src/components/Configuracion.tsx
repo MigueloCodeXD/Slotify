@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion, getRolProfesional } from "@/lib/sesion";
-import { configPublica, serviciosPublicos } from "@/lib/supabaseClient";
+import { configPublica, serviciosPublicos, supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/Toast";
 import { ChatIA } from "@/components/ChatIA";
 import type { Config, ServicioPublico } from "@/types";
@@ -28,10 +28,13 @@ export function Configuracion() {
   const [invitar, setInvitar] = useState({ nombre: "", email: "" });
   const [nuevoServicio, setNuevoServicio] = useState({ nombre: "", precio: "", duracion: "" });
   const [cargando, setCargando] = useState(true);
-  const [perfil, setPerfil] = useState<{ nombre: string; telefono: string; foto_url: string }>({
+  const [perfil, setPerfil] = useState<{ nombre: string; email: string; telefono: string; cedula: string; foto_url: string; rol: string }>({
     nombre: "",
+    email: "",
     telefono: "",
+    cedula: "",
     foto_url: "",
+    rol: "",
   });
 
   const { notificar } = useToast();
@@ -54,14 +57,17 @@ export function Configuracion() {
       const [mis, r, perfilRes] = await Promise.all([
         llamarEdge<{ servicio_ids: string[] }>("configuracion-profesional", { accion: "listar_mis_servicios" }, token),
         getRolProfesional(),
-        llamarEdge<{ profesional: { nombre: string; telefono: string | null; foto_url: string | null } }>("mi-perfil", {}, token),
+        llamarEdge<{ profesional: { nombre: string; email: string; telefono: string | null; cedula: string | null; foto_url: string | null; rol: string } }>("mi-perfil", {}, token),
       ]);
       setMisServicios(mis.servicio_ids ?? []);
       setRol(r);
       setPerfil({
         nombre: perfilRes.profesional?.nombre ?? "",
+        email: perfilRes.profesional?.email ?? "",
         telefono: perfilRes.profesional?.telefono ?? "",
+        cedula: perfilRes.profesional?.cedula ?? "",
         foto_url: perfilRes.profesional?.foto_url ?? "",
+        rol: perfilRes.profesional?.rol ?? "",
       });
     } catch (e) {
       notificar((e as Error).message, "error");
@@ -181,10 +187,31 @@ export function Configuracion() {
     try {
       await llamarEdge(
         "actualizar-perfil",
-        { nombre: perfil.nombre, telefono: perfil.telefono || null, foto_url: perfil.foto_url || null },
+        { nombre: perfil.nombre, telefono: perfil.telefono || null, cedula: perfil.cedula || null, foto_url: perfil.foto_url || null },
         token
       );
       notificar("Perfil actualizado.", "exito");
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    }
+  }
+
+  async function subirFoto(file: File) {
+    if (!file.type.startsWith("image/")) {
+      notificar("Selecciona una imagen.", "error");
+      return;
+    }
+    const user = supabase.auth.getUser();
+    const { data } = await user;
+    const uid = data.user?.id;
+    if (!uid) return notificar("Sesión inválida.", "error");
+    const path = `avatares/${uid}/${Date.now()}.${file.name.split(".").pop()?.toLowerCase() || "jpg"}`;
+    try {
+      const { error } = await supabase.storage.from("fotos-perfil").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw new Error(error.message);
+      const { data: pub } = supabase.storage.from("fotos-perfil").getPublicUrl(path);
+      setPerfil((p) => ({ ...p, foto_url: pub.publicUrl }));
+      notificar("Foto subida.", "exito");
     } catch (e) {
       notificar((e as Error).message, "error");
     }
@@ -225,18 +252,55 @@ export function Configuracion() {
             className="border-white/10 bg-white/[0.06] text-zinc-100"
           />
           <Campo
+            label="Correo"
+            value={perfil.email}
+            readOnly
+            className="border-white/10 bg-white/[0.06] text-zinc-500"
+          />
+          <Campo
             label="Teléfono"
             value={perfil.telefono}
             onChange={(e) => setPerfil({ ...perfil, telefono: e.target.value })}
             className="border-white/10 bg-white/[0.06] text-zinc-100"
           />
           <Campo
-            label="Foto (URL)"
-            placeholder="https://…"
-            value={perfil.foto_url}
-            onChange={(e) => setPerfil({ ...perfil, foto_url: e.target.value })}
-            className="border-white/10 bg-white/[0.06] text-zinc-100 sm:col-span-2"
+            label="Cédula"
+            value={perfil.cedula}
+            onChange={(e) => setPerfil({ ...perfil, cedula: e.target.value })}
+            className="border-white/10 bg-white/[0.06] text-zinc-100"
           />
+          <Campo
+            label="Rol"
+            value={perfil.rol}
+            readOnly
+            className="border-white/10 bg-white/[0.06] text-zinc-500"
+          />
+          <div className="sm:col-span-2">
+            <span className="mb-1 block text-xs font-semibold text-zinc-400">Foto de perfil</span>
+            <div className="flex items-center gap-3">
+              {perfil.foto_url ? (
+                <img
+                  src={perfil.foto_url}
+                  alt="Foto de perfil"
+                  className="h-16 w-16 rounded-2xl border border-white/10 object-cover"
+                />
+              ) : (
+                <span className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-2xl">
+                  👤
+                </span>
+              )}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void subirFoto(f);
+                  e.target.value = "";
+                }}
+                className="block w-full max-w-xs rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-500/20 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-violet-200 hover:file:bg-violet-500/30"
+              />
+            </div>
+          </div>
           <div className="sm:col-span-2">
             <Boton type="submit" variante="primario">
               Guardar perfil
@@ -245,6 +309,7 @@ export function Configuracion() {
         </form>
       </Tarjeta>
 
+      {rol === "admin" && (
       <Tarjeta className="p-5 animate-fade-up">
         <div className="mb-3 flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-400/15 text-sm">🏪</span>
@@ -288,6 +353,7 @@ export function Configuracion() {
           </form>
         )}
       </Tarjeta>
+      )}
 
       <Tarjeta className="p-5 animate-fade-up [animation-delay:80ms]">
         <div className="mb-3 flex items-center gap-2">
@@ -311,6 +377,7 @@ export function Configuracion() {
                 >
                   {s.nombre}
                 </button>
+                {rol === "admin" && (
                 <button
                   onClick={() => eliminarServicio(s)}
                   title="Eliminar servicio del catálogo"
@@ -318,6 +385,7 @@ export function Configuracion() {
                 >
                   ✕
                 </button>
+                )}
               </div>
             );
           })}
@@ -381,6 +449,7 @@ export function Configuracion() {
         </div>
       </Tarjeta>
 
+      {rol === "admin" && (
       <Tarjeta className="p-5 animate-fade-up [animation-delay:240ms]">
         <div className="mb-3 flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-400/15 text-sm">➕</span>
@@ -416,6 +485,7 @@ export function Configuracion() {
           </div>
         </form>
       </Tarjeta>
+      )}
 
       {rol === "admin" && (
         <Tarjeta className="p-5 animate-fade-up [animation-delay:320ms]">

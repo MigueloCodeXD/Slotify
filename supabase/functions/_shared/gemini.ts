@@ -43,11 +43,11 @@ export async function chatConHerramientas(opts: {
   maxTurns?: number;
 }): Promise<{ respuesta: string; fallback: boolean }> {
   if (!(await incrementarUso(opts.tipo))) {
-    return { respuesta: "__FALLBACK_BOTONES__", fallback: true };
+    return { respuesta: "[fallback: límite diario alcanzado]", fallback: true };
   }
 
   const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) return { respuesta: "__FALLBACK_BOTONES__", fallback: true };
+  if (!apiKey) return { respuesta: "[fallback: sin API key]", fallback: true };
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${apiKey}`;
 
@@ -67,6 +67,8 @@ export async function chatConHerramientas(opts: {
   ];
 
   const maxTurns = opts.maxTurns ?? 6;
+  const ejecutadas = new Set<string>();
+  let ultimoTexto = "";
 
   for (let turn = 0; turn < maxTurns; turn++) {
     let res: Response;
@@ -81,27 +83,28 @@ export async function chatConHerramientas(opts: {
         }),
       });
     } catch {
-      return { respuesta: "__FALLBACK_BOTONES__", fallback: true };
+      return { respuesta: "[fallback: error de red]", fallback: true };
     }
 
     if (res.status === 429) {
-      return { respuesta: "__FALLBACK_BOTONES__", fallback: true };
+      return { respuesta: "[fallback: 429 cuota]", fallback: true };
     }
 
     let data: any;
     try {
       data = await res.json();
     } catch {
-      return { respuesta: "Lo siento, no pude procesar eso. Usa los botones para agendar.", fallback: true };
+      return { respuesta: "[fallback: respuesta inválida]", fallback: true };
     }
 
     if (!res.ok) {
       console.error("Gemini error:", res.status, JSON.stringify(data).slice(0, 300));
-      return { respuesta: "Lo siento, hubo un error. Usa los botones para continuar.", fallback: true };
+      return { respuesta: `[fallback: error ${res.status}]`, fallback: true };
     }
 
     const parts = data?.candidates?.[0]?.content?.parts ?? [];
     const texto = parts.filter((p: any) => p.text).map((p: any) => p.text).join("");
+    if (texto) ultimoTexto = texto;
     const calls = parts.filter((p: any) => p.functionCall);
 
     if (calls.length === 0) {
@@ -112,6 +115,17 @@ export async function chatConHerramientas(opts: {
     for (const call of calls) {
       const name = call.functionCall.name as string;
       const args = (call.functionCall.args ?? {}) as Record<string, unknown>;
+      const clave = `${name}|${JSON.stringify(args)}`;
+      if (ejecutadas.has(clave)) {
+        functionResponses.push({
+          functionResponse: {
+            name,
+            response: { error: "Acción ya ejecutada. Resúmela al usuario, no la repitas." },
+          },
+        });
+        continue;
+      }
+      ejecutadas.add(clave);
       const handler = opts.handlers[name];
       if (!handler) {
         functionResponses.push({ functionResponse: { name, response: { error: "Función no disponible" } } });
@@ -133,5 +147,6 @@ export async function chatConHerramientas(opts: {
     contents.push({ role: "user", parts: functionResponses });
   }
 
-  return { respuesta: "Necesito un poco más de información. Si algo falla, usa los botones.", fallback: true };
+  if (ultimoTexto) return { respuesta: ultimoTexto, fallback: false };
+  return { respuesta: "[fallback: sin texto tras agotar turnos]", fallback: true };
 }

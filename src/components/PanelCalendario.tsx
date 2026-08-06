@@ -47,6 +47,15 @@ function fmtHora(iso: string): string {
   }).format(new Date(iso));
 }
 
+function fmtInputTime(iso: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: TZ,
+  }).format(new Date(iso));
+}
+
 function fechaLocal(iso: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso));
 }
@@ -66,15 +75,25 @@ function construirMesa(mes: Date): Date[] {
   });
 }
 
+function lunesDe(d: Date): Date {
+  const a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  a.setDate(a.getDate() - ((a.getDay() + 6) % 7));
+  return a;
+}
+
 export function PanelCalendario() {
   const { notificar } = useToast();
   const [mes, setMes] = useState(() => new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [vista, setVista] = useState<"mes" | "semana">("mes");
+  const [semanaBase, setSemanaBase] = useState(() => lunesDe(new Date()));
   const [citas, setCitas] = useState<CitaProfesional[]>([]);
   const [bloqueos, setBloqueos] = useState<Bloqueo[]>([]);
   const [cargando, setCargando] = useState(true);
   const [selId, setSelId] = useState<string | null>(null);
 
-  const [bloqueoForm, setBloqueoForm] = useState({ fecha: "", inicio: "", fin: "", motivo: "" });
+  const [bloqueoForm, setBloqueoForm] = useState({ fecha: "", hasta: "", inicio: "", fin: "", motivo: "" });
+  const [bloqueoEditId, setBloqueoEditId] = useState<string | null>(null);
+  const [bloqueoOcupado, setBloqueoOcupado] = useState(false);
 
   const [reproId, setReproId] = useState<string | null>(null);
   const [reproDia, setReproDia] = useState("");
@@ -96,12 +115,32 @@ export function PanelCalendario() {
 
   const grid = useMemo(() => construirMesa(mes), [mes]);
 
+  const diasSemana = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(semanaBase);
+        d.setDate(semanaBase.getDate() + i);
+        return d;
+      }),
+    [semanaBase]
+  );
+
   const cargar = useCallback(async (mostrarCarga = false) => {
     if (mostrarCarga) setCargando(true);
     try {
       const token = (await getTokenSesion()) ?? undefined;
-      const desde = new Date(mes.getFullYear(), mes.getMonth(), 1).toISOString().slice(0, 10);
-      const hasta = new Date(mes.getFullYear(), mes.getMonth() + 1, 0).toISOString().slice(0, 10);
+      let primerDia: Date;
+      let ultimoDia: Date;
+      if (vista === "semana") {
+        primerDia = new Date(semanaBase);
+        ultimoDia = new Date(semanaBase);
+        ultimoDia.setDate(semanaBase.getDate() + 6);
+      } else {
+        primerDia = new Date(mes.getFullYear(), mes.getMonth(), 1);
+        ultimoDia = new Date(mes.getFullYear(), mes.getMonth() + 1, 0);
+      }
+      const desde = fechaLocal(primerDia.toISOString()).slice(0, 10);
+      const hasta = fechaLocal(ultimoDia.toISOString()).slice(0, 10);
       const res = await llamarEdge<{ citas: CitaProfesional[]; bloqueos: Bloqueo[] }>(
         "consultar-agenda-dia",
         { desde, hasta },
@@ -115,7 +154,7 @@ export function PanelCalendario() {
     } finally {
       setCargando(false);
     }
-  }, [mes, notificar]);
+  }, [mes, vista, semanaBase, notificar]);
 
   useEffect(() => {
     const cita = citas.find((c) => c.id === selId);
@@ -131,12 +170,56 @@ export function PanelCalendario() {
   async function crearBloqueo(e: React.FormEvent) {
     e.preventDefault();
     if (!bloqueoForm.fecha || !bloqueoForm.inicio || !bloqueoForm.fin) return;
+    setBloqueoOcupado(false);
+    const hasta = bloqueoForm.hasta || bloqueoForm.fecha;
     const start = new Date(`${bloqueoForm.fecha}T${bloqueoForm.inicio}:00-05:00`).toISOString();
-    const end = new Date(`${bloqueoForm.fecha}T${bloqueoForm.fin}:00-05:00`).toISOString();
+    const end = new Date(`${hasta}T${bloqueoForm.fin}:00-05:00`).toISOString();
+    if (new Date(end) <= new Date(start)) {
+      notificar("El bloqueo debe terminar después de comenzar.", "error");
+      return;
+    }
     const token = (await getTokenSesion()) ?? undefined;
     try {
-      await llamarEdge("crear-bloqueo", { start, end, motivo: bloqueoForm.motivo }, token);
-      setBloqueoForm({ fecha: "", inicio: "", fin: "", motivo: "" });
+      if (bloqueoEditId) {
+        await llamarEdge("actualizar-bloqueo", { id: bloqueoEditId, start, end, motivo: bloqueoForm.motivo }, token);
+      } else {
+        await llamarEdge("crear-bloqueo", { start, end, motivo: bloqueoForm.motivo }, token);
+      }
+      setBloqueoForm({ fecha: "", hasta: "", inicio: "", fin: "", motivo: "" });
+      setBloqueoEditId(null);
+      await cargar();
+    } catch (err) {
+      const msg = (err as Error).message;
+      if (msg.includes("solapa")) setBloqueoOcupado(true);
+      notificar(msg, "error");
+    }
+  }
+
+  function abrirEditarBloqueo(b: Bloqueo) {
+    setBloqueoEditId(b.id);
+    setBloqueoForm({
+      fecha: fechaLocal(b.start),
+      hasta: fechaLocal(b.end) === fechaLocal(b.start) ? "" : fechaLocal(b.end),
+      inicio: fmtInputTime(b.start),
+      fin: fmtInputTime(b.end),
+      motivo: b.motivo ?? "",
+    });
+    setBloqueoOcupado(false);
+  }
+
+  function cancelarEditarBloqueo() {
+    setBloqueoEditId(null);
+    setBloqueoForm({ fecha: "", hasta: "", inicio: "", fin: "", motivo: "" });
+    setBloqueoOcupado(false);
+  }
+
+  async function eliminarBloqueo(b: Bloqueo) {
+    const token = (await getTokenSesion()) ?? undefined;
+    const confirmado = window.confirm(`¿Eliminar este bloqueo${b.motivo ? ` (${b.motivo})` : ""}?`);
+    if (!confirmado) return;
+    try {
+      await llamarEdge("eliminar-bloqueo", { id: b.id }, token);
+      if (bloqueoEditId === b.id) cancelarEditarBloqueo();
       await cargar();
     } catch (err) {
       notificar((err as Error).message, "error");
@@ -248,30 +331,71 @@ export function PanelCalendario() {
     return { citas: citasDia, bloqueos: bloqueosDia, esHoy: k === hoy, fueraMes: d.getMonth() !== mes.getMonth() };
   };
 
-  const tituloMes = new Intl.DateTimeFormat("es", { month: "long", year: "numeric" }).format(mes);
-
   const hoyStr = fechaLocal(new Date().toISOString());
   const citasHoy = citas
     .filter((c) => c.estado !== "cancelada" && fechaLocal(c.start) === hoyStr)
     .sort((a, b) => a.start.localeCompare(b.start));
+
+  function navegar(dir: number) {
+    if (vista === "semana") {
+      const n = new Date(semanaBase);
+      n.setDate(semanaBase.getDate() + 7 * dir);
+      setSemanaBase(n);
+    } else {
+      setMes(new Date(mes.getFullYear(), mes.getMonth() + dir, 1));
+    }
+  }
+
+  function volverHoy() {
+    if (vista === "semana") setSemanaBase(lunesDe(new Date()));
+    else setMes(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  }
+
+  const tituloPeriodo =
+    vista === "semana"
+      ? (() => {
+          const ini = diasSemana[0]!;
+          const fin = diasSemana[6]!;
+          const fMismoMes = ini.getMonth() === fin.getMonth();
+          const fmt = (d: Date, conAño: boolean) =>
+            new Intl.DateTimeFormat("es", { day: "numeric", month: fMismoMes ? (conAño ? "long" : "short") : "short", year: conAño ? "numeric" : undefined, timeZone: TZ }).format(
+              new Date(d.getFullYear(), d.getMonth(), d.getDate())
+            );
+          return `${fmt(ini, false)} – ${fmt(fin, true)}`;
+        })()
+      : new Intl.DateTimeFormat("es", { month: "long", year: "numeric" }).format(mes);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-semibold text-white animate-fade-up">Calendario</h1>
-          <p className="mt-1 text-sm text-violet-200/60">Gestiona tus citas del mes</p>
+          <p className="mt-1 text-sm text-violet-200/60">Gestiona tus citas del {vista === "semana" ? "día a día" : "mes"}</p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="mr-2 flex overflow-hidden rounded-xl border border-white/10 text-xs font-semibold">
+            <button
+              onClick={() => setVista("mes")}
+              className={`px-3 py-2 transition ${vista === "mes" ? "bg-white/15 text-white" : "bg-transparent text-zinc-400 hover:text-white"}`}
+            >
+              Mes
+            </button>
+            <button
+              onClick={() => setVista("semana")}
+              className={`px-3 py-2 transition ${vista === "semana" ? "bg-white/15 text-white" : "bg-transparent text-zinc-400 hover:text-white"}`}
+            >
+              Semana
+            </button>
+          </div>
           <button
-            onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
+            onClick={() => navegar(-1)}
             className="glass glass-hover flex h-9 w-9 items-center justify-center rounded-xl text-white"
-            aria-label="Mes anterior"
+            aria-label="Anterior"
           >
             ‹
           </button>
           <button
-            onClick={() => setMes(new Date(new Date().getFullYear(), new Date().getMonth(), 1))}
+            onClick={volverHoy}
             className="glass glass-hover rounded-xl px-3 py-1.5 text-sm text-white"
           >
             Hoy
@@ -283,9 +407,9 @@ export function PanelCalendario() {
             + Nueva cita
           </button>
           <button
-            onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
+            onClick={() => navegar(1)}
             className="glass glass-hover flex h-9 w-9 items-center justify-center rounded-xl text-white"
-            aria-label="Mes siguiente"
+            aria-label="Siguiente"
           >
             ›
           </button>
@@ -342,7 +466,7 @@ export function PanelCalendario() {
       {/* ---- Calendario mensual ---- */}
       <Tarjeta className="p-4 sm:p-6 animate-fade-up [animation-delay:100ms]">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold capitalize text-white">{tituloMes}</h2>
+          <h2 className="font-display text-lg font-semibold capitalize text-white">{tituloPeriodo}</h2>
           <div className="flex items-center gap-4 text-xs text-zinc-400">
             <span className="flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-full bg-violet-400" /> Citas
@@ -353,7 +477,57 @@ export function PanelCalendario() {
           </div>
         </div>
 
-        {cargando ? (
+        {vista === "semana" && (
+          <div className="overflow-hidden rounded-2xl border border-white/10">
+            <div className="grid grid-cols-7 gap-px bg-white/[0.06]">
+              {diasSemana.map((d) => {
+                const { citas: delDia, bloqueos: bloqueosDia, esHoy } = eventosDelDia(d);
+                return (
+                  <div key={d.toISOString()} className="min-h-[140px] bg-[#0b0817]/90 p-1.5">
+                    <div className="flex flex-col items-center gap-0.5 border-b border-white/[0.06] pb-1.5 text-center">
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs font-semibold ${
+                          esHoy ? "bg-gradient-to-br from-violet-500 to-fuchsia-400 text-white" : "text-zinc-300"
+                        }`}
+                      >
+                        {d.getDate()}
+                      </span>
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                        {DIAS_SEMANA[(d.getDay() + 6) % 7]}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 space-y-1">
+                      {bloqueosDia.map((b) => (
+                        <div
+                          key={b.id}
+                          className="truncate rounded-md border border-rose-300/20 bg-rose-400/10 px-1 py-0.5 font-mono text-[10px] text-rose-200"
+                          title={`Bloqueo ${fmtHora(b.start)}–${fmtHora(b.end)}${b.motivo ? " · " + b.motivo : ""}`}
+                        >
+                          🔒 {fmtHora(b.start)}
+                        </div>
+                      ))}
+                      {delDia.map((c) => (
+                        <div
+                          key={c.id}
+                          onClick={() => setSelId(selId === c.id ? null : c.id)}
+                          title={`${c.cliente?.nombre} · ${fmtHora(c.start)}–${fmtHora(c.end)} · ${c.estado}`}
+                          className={`cursor-pointer truncate rounded-md border px-1 py-0.5 font-mono text-[10px] transition-all duration-200 ${
+                            COLOR_CHIP[c.estado] ?? COLOR_CHIP.confirmada
+                          }`}
+                        >
+                          {fmtHora(c.start)} · {c.servicio?.nombre}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {vista === "mes" && (
+          cargando ? (
           <div className="space-y-2">
             <div className="grid grid-cols-7 gap-2">
               {Array.from({ length: 7 }).map((_, i) => (
@@ -439,20 +613,28 @@ export function PanelCalendario() {
               })}
             </div>
           </div>
-        )}
+        ))}
       </Tarjeta>
 
       <Tarjeta className="p-5 animate-fade-up [animation-delay:200ms]">
         <div className="mb-3 flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-400/15 text-sm">🔒</span>
-          <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Crear bloqueo</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">
+            {bloqueoEditId ? "Editar bloqueo" : "Crear bloqueo"}
+          </h2>
         </div>
-        <form onSubmit={crearBloqueo} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <form onSubmit={crearBloqueo} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           <Campo
-            label="Fecha"
+            label="Desde"
             type="date"
             value={bloqueoForm.fecha}
             onChange={(e) => setBloqueoForm({ ...bloqueoForm, fecha: e.target.value })}
+          />
+          <Campo
+            label="Hasta"
+            type="date"
+            value={bloqueoForm.hasta}
+            onChange={(e) => setBloqueoForm({ ...bloqueoForm, hasta: e.target.value })}
           />
           <Campo
             label="Inicio"
@@ -474,10 +656,70 @@ export function PanelCalendario() {
           />
           <div className="flex items-end">
             <Boton type="submit" variante="primario" className="w-full">
-              Crear
+              {bloqueoEditId ? "Guardar" : "Crear"}
             </Boton>
           </div>
         </form>
+        <p className="mt-2 text-xs text-zinc-500">
+          Dejar &quot;Hasta&quot; en blanco crea un bloqueo de un solo día.
+        </p>
+        {bloqueoOcupado && (
+          <p className="mt-2 text-xs font-semibold text-rose-300">
+            Este bloqueo solapa una cita existente. Ajusta el rango.
+          </p>
+        )}
+        {bloqueoEditId && (
+          <button
+            onClick={cancelarEditarBloqueo}
+            className="mt-2 text-xs font-semibold text-zinc-400 underline-offset-2 transition hover:text-zinc-200 hover:underline"
+          >
+            Cancelar edición
+          </button>
+        )}
+
+        {bloqueos.length > 0 && (
+          <div className="mt-5">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400">Mis bloqueos</h3>
+            <ul className="flex flex-col gap-2">
+              {bloqueos.map((b) => (
+                <li
+                  key={b.id}
+                  className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm ${
+                    bloqueoEditId === b.id
+                      ? "border-rose-400/50 bg-rose-400/10"
+                      : "border-white/10 bg-white/[0.03]"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs font-semibold text-rose-100">
+                      {fmtPill(fechaLocal(b.start), TZ)} · {fmtHora(b.start)}–{fmtHora(b.end)}
+                      {fechaLocal(b.end) !== fechaLocal(b.start) && (
+                        <span className="text-zinc-400"> hasta {fmtPill(fechaLocal(b.end), TZ)}</span>
+                      )}
+                    </p>
+                    {b.motivo && <p className="truncate text-xs text-zinc-400">{b.motivo}</p>}
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <Boton
+                      variante="secundario"
+                      className="h-7 px-3 text-xs"
+                      onClick={() => abrirEditarBloqueo(b)}
+                    >
+                      Editar
+                    </Boton>
+                    <Boton
+                      variante="peligro"
+                      className="h-7 px-3 text-xs"
+                      onClick={() => eliminarBloqueo(b)}
+                    >
+                      Eliminar
+                    </Boton>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Tarjeta>
 
       <Copiloto onRecargar={cargar} />

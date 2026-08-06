@@ -29,6 +29,7 @@ export function AsistenteIA() {
     try {
       const res = await llamarEdge<{ respuesta: string; fallback: boolean }>("asistente-cliente", {
         mensaje: texto,
+        historial: mensajes.slice(-20).map((m) => ({ role: m.role === "user" ? "user" : "model", text: m.text })),
       });
       if (res.fallback) {
         setMensajes((m) => [

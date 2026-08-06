@@ -12,6 +12,9 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [recuperar, setRecuperar] = useState(false);
+  const [emailRec, setEmailRec] = useState("");
+  const [recuperado, setRecuperado] = useState(false);
 
   async function entrar(e: React.FormEvent) {
     e.preventDefault();
@@ -25,6 +28,21 @@ export default function Login() {
     }
     router.push("/panel");
     router.refresh();
+  }
+
+  async function solicitarRecuperacion(e: React.FormEvent) {
+    e.preventDefault();
+    setCargando(true);
+    setError(null);
+    const { error } = await supabase.auth.resetPasswordForEmail(emailRec, {
+      redirectTo: `${window.location.origin}/restablecer-password`,
+    });
+    setCargando(false);
+    if (error) {
+      setError("No pudimos enviar el enlace. Verifica el email.");
+      return;
+    }
+    setRecuperado(true);
   }
 
   return (
@@ -53,27 +71,71 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={entrar} className="mt-6 space-y-4">
-          <Campo
-            label="Email"
-            type="email"
-            placeholder="tucorreo@negocio.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
-          />
-          <Campo
-            label="Contraseña"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
-          />
-          <Boton type="submit" variante="primario" className="w-full" disabled={cargando}>
-            {cargando ? <Spinner /> : "Entrar"}
-          </Boton>
-        </form>
+        {recuperado ? (
+          <div className="mt-6 rounded-xl border border-teal-400/25 bg-teal-500/15 px-4 py-3 text-sm text-teal-200 backdrop-blur">
+            Si el correo está registrado, enviamos un enlace para restablecer tu contraseña. Revisa tu bandeja de
+            entrada.
+          </div>
+        ) : recuperar ? (
+          <form onSubmit={solicitarRecuperacion} className="mt-6 space-y-4">
+            <p className="text-sm text-zinc-400">
+              Te enviaremos un enlace a tu correo para crear una nueva contraseña.
+            </p>
+            <Campo
+              label="Email"
+              type="email"
+              placeholder="tucorreo@negocio.com"
+              value={emailRec}
+              onChange={(e) => setEmailRec(e.target.value)}
+              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
+            />
+            <Boton type="submit" variante="primario" className="w-full" disabled={cargando}>
+              {cargando ? <Spinner /> : "Enviar enlace"}
+            </Boton>
+            <button
+              type="button"
+              onClick={() => {
+                setRecuperar(false);
+                setError(null);
+              }}
+              className="w-full text-center text-xs font-semibold text-violet-300 hover:text-violet-200 hover:underline"
+            >
+              Volver al inicio de sesión
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={entrar} className="mt-6 space-y-4">
+            <Campo
+              label="Email"
+              type="email"
+              placeholder="tucorreo@negocio.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
+            />
+            <Campo
+              label="Contraseña"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
+            />
+            <Boton type="submit" variante="primario" className="w-full" disabled={cargando}>
+              {cargando ? <Spinner /> : "Entrar"}
+            </Boton>
+            <button
+              type="button"
+              onClick={() => {
+                setRecuperar(true);
+                setError(null);
+              }}
+              className="w-full text-center text-xs font-semibold text-violet-300 hover:text-violet-200 hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </form>
+        )}
       </Tarjeta>
     </div>
   );

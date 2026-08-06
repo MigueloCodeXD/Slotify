@@ -48,7 +48,10 @@ export function Copiloto({ onRecargar }: { onRecargar: () => void }) {
       const token = (await getTokenSesion()) ?? undefined;
       const res = await llamarEdge<{ respuesta: string; fallback: boolean }>(
         "copiloto-profesional",
-        { mensaje: texto },
+        {
+          mensaje: texto,
+          historial: mensajes.slice(-20).map((m) => ({ role: m.role === "user" ? "user" : "model", text: m.text })),
+        },
         token
       );
       if (res.fallback) {

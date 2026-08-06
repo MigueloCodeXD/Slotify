@@ -28,6 +28,11 @@ export function Configuracion() {
   const [invitar, setInvitar] = useState({ nombre: "", email: "" });
   const [nuevoServicio, setNuevoServicio] = useState({ nombre: "", precio: "", duracion: "" });
   const [cargando, setCargando] = useState(true);
+  const [perfil, setPerfil] = useState<{ nombre: string; telefono: string; foto_url: string }>({
+    nombre: "",
+    telefono: "",
+    foto_url: "",
+  });
 
   const { notificar } = useToast();
 
@@ -46,12 +51,18 @@ export function Configuracion() {
       setDisponibilidad((rango.dias ?? []).map((d) => ({ ...d, dia_semana: Number(d.dia_semana) })));
 
       const token = (await getTokenSesion()) ?? undefined;
-      const [mis, r] = await Promise.all([
+      const [mis, r, perfilRes] = await Promise.all([
         llamarEdge<{ servicio_ids: string[] }>("configuracion-profesional", { accion: "listar_mis_servicios" }, token),
         getRolProfesional(),
+        llamarEdge<{ profesional: { nombre: string; telefono: string | null; foto_url: string | null } }>("mi-perfil", {}, token),
       ]);
       setMisServicios(mis.servicio_ids ?? []);
       setRol(r);
+      setPerfil({
+        nombre: perfilRes.profesional?.nombre ?? "",
+        telefono: perfilRes.profesional?.telefono ?? "",
+        foto_url: perfilRes.profesional?.foto_url ?? "",
+      });
     } catch (e) {
       notificar((e as Error).message, "error");
     } finally {
@@ -160,6 +171,25 @@ export function Configuracion() {
     }
   }
 
+  async function guardarPerfil(e: React.FormEvent) {
+    e.preventDefault();
+    if (perfil.nombre.trim().length < 2) {
+      notificar("El nombre es obligatorio.", "error");
+      return;
+    }
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge(
+        "actualizar-perfil",
+        { nombre: perfil.nombre, telefono: perfil.telefono || null, foto_url: perfil.foto_url || null },
+        token
+      );
+      notificar("Perfil actualizado.", "exito");
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    }
+  }
+
   function actualizarRango(idx: number, campo: keyof RangoSemanal, valor: string | number) {
     setDisponibilidad((prev) =>
       prev.map((d, i) =>
@@ -181,6 +211,39 @@ export function Configuracion() {
       <h1 className="text-2xl font-bold text-white animate-fade-up">Configuración</h1>
 
       <ChatIA onAccion={cargarTodo} storageKey="configuracion" clase="animate-fade-up" />
+
+      <Tarjeta className="p-5 animate-fade-up">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-400/15 text-sm">👤</span>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Mi perfil</h2>
+        </div>
+        <form onSubmit={guardarPerfil} className="grid gap-3 sm:grid-cols-2">
+          <Campo
+            label="Nombre"
+            value={perfil.nombre}
+            onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })}
+            className="border-white/10 bg-white/[0.06] text-zinc-100"
+          />
+          <Campo
+            label="Teléfono"
+            value={perfil.telefono}
+            onChange={(e) => setPerfil({ ...perfil, telefono: e.target.value })}
+            className="border-white/10 bg-white/[0.06] text-zinc-100"
+          />
+          <Campo
+            label="Foto (URL)"
+            placeholder="https://…"
+            value={perfil.foto_url}
+            onChange={(e) => setPerfil({ ...perfil, foto_url: e.target.value })}
+            className="border-white/10 bg-white/[0.06] text-zinc-100 sm:col-span-2"
+          />
+          <div className="sm:col-span-2">
+            <Boton type="submit" variante="primario">
+              Guardar perfil
+            </Boton>
+          </div>
+        </form>
+      </Tarjeta>
 
       <Tarjeta className="p-5 animate-fade-up">
         <div className="mb-3 flex items-center gap-2">

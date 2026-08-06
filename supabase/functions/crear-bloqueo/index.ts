@@ -3,6 +3,7 @@ import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { citaConflicto } from "../_shared/disponibilidad.ts";
 
 const schema = z.object({
   start: z.string().datetime(),
@@ -33,6 +34,17 @@ export async function crearBloqueoRequest(req: Request): Promise<Response> {
   const end = Date.parse(d.end);
   if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
     return json({ error: "Rango inválido." }, 400);
+  }
+
+  const conflicto = await citaConflicto({ profesionalId: prof.id, start, end });
+  if (conflicto) {
+    return json(
+      {
+        error: "El bloqueo solapa una cita existente. Ajusta el rango o gestiona la cita primero.",
+        cita: { id: conflicto.id, estado: conflicto.estado, servicio: conflicto.servicio?.nombre ?? null },
+      },
+      409
+    );
   }
 
   const rango = `["${new Date(start).toISOString()}","${new Date(end).toISOString()}")`;

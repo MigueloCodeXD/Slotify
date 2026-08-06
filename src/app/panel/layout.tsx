@@ -41,6 +41,12 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
     { href: "/panel/dashboard", label: "Resumen" },
     { href: "/panel", label: "Calendario" },
     { href: "/panel/configuracion", label: "Configuración" },
+    ...(rol === "admin"
+      ? [
+          { href: "/panel/profesionales", label: "Profesionales" },
+          { href: "/panel/clientes", label: "Clientes" },
+        ]
+      : []),
   ];
 
   return (

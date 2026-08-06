@@ -14,7 +14,7 @@ export async function getUserFromRequest(req: Request): Promise<string | null> {
 export async function getProfesionalByUser(userId: string) {
   const { data, error } = await admin
     .from("profesionales")
-    .select("id, nombre, email, rol, activo")
+    .select("id, nombre, email, rol, activo, telefono, foto_url")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) return { data: null, error };

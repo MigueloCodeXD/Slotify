@@ -5,17 +5,24 @@ import { admin, json } from "../_shared/db.ts";
 import { chatConHerramientas, type ToolDef } from "../_shared/gemini.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
-import { crearSesionCliente, verificarSesionCliente } from "../_shared/token.ts";
+import { verificarSesionCliente } from "../_shared/token.ts";
+import { contextoHoy, contextoNegocio, hoyIso } from "../_shared/contexto.ts";
 
-const SISTEMA = `Eres el asistente de agendamiento de un negocio (Slotify). Ayudas al cliente a
+async function construirSistema(): Promise<string> {
+  const hoy = contextoHoy();
+  const negocio = await contextoNegocio();
+  return `Eres el asistente de agendamiento de un negocio (Slotify${negocio ? `: ${negocio}` : ""}). Ayudas al cliente a
 elegir servicio, profesional y horario, y a agendar o gestionar citas.
+${hoy}.
 REGLAS ESTRICTAS:
 - NUNCA inventes precios, horarios, nombres de profesionales ni disponibilidad. Si necesitas ese dato, llama a la función correspondiente.
+- NUNCA preguntes al cliente por la fecha u hora actual: ya la conoces. Las fechas siempre en formato AAAA-MM-DD.
 - Una cita es para UN solo servicio.
 - Para crear una cita pide nombre y email del cliente, y confirma el horario antes de llamar a crear_cita.
 - Si el cliente quiere ver "todas sus citas", indica que debe solicitar un código de acceso a /mis-citas y luego pasar el código.
 - Para cancelar o reprogramar, pide el enlace/token que tiene en su correo.
 Responde siempre de forma breve y en español.`;
+}
 
 const herramientas: ToolDef[] = [
   {
@@ -25,15 +32,15 @@ const herramientas: ToolDef[] = [
   },
   {
     name: "consultar_disponibilidad",
-    description: "Huecos disponibles (inicio/fin) para un servicio, opcionalmente para un profesional, en una fecha (AAAA-MM-DD).",
+    description: "Huecos disponibles (inicio/fin) para un servicio, opcionalmente para un profesional, en una fecha (AAAA-MM-DD). Si no conoces la fecha, usa la de hoy.",
     parameters: {
       type: "object",
       properties: {
         servicio_id: { type: "string" },
-        fecha: { type: "string", description: "Fecha en formato AAAA-MM-DD" },
+        fecha: { type: "string", description: "Fecha en formato AAAA-MM-DD (opcional; por defecto hoy)" },
         profesional_id: { type: "string" },
       },
-      required: ["servicio_id", "fecha"],
+      required: ["servicio_id"],
     },
   },
   {
@@ -94,7 +101,20 @@ export async function asistenteRequest(req: Request): Promise<Response> {
   } catch {
     return json({ error: "Body inválido" }, 400);
   }
-  const parsed = z.object({ mensaje: z.string().max(800) }).safeParse(body);
+  const parsed = z
+    .object({
+      mensaje: z.string().max(800),
+      historial: z
+        .array(
+          z.object({
+            role: z.enum(["user", "model"]),
+            text: z.string().max(2000),
+          })
+        )
+        .max(20)
+        .optional(),
+    })
+    .safeParse(body);
   if (!parsed.success) return json({ error: "Mensaje inválido" }, 400);
 
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
@@ -104,7 +124,7 @@ export async function asistenteRequest(req: Request): Promise<Response> {
     },
     consultar_disponibilidad: async (args) => {
       const servicio_id = String(args.servicio_id ?? "");
-      const fecha = String(args.fecha ?? "");
+      const fecha = String(args.fecha ?? hoyIso());
       const profesional_id = args.profesional_id ? String(args.profesional_id) : null;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: "Fecha inválida" };
       const startMs = Date.parse(`${fecha}T05:00:00Z`);
@@ -153,13 +173,70 @@ export async function asistenteRequest(req: Request): Promise<Response> {
       return { ok: true };
     },
     reprogramar_cita: async (args) => {
-      return { error: "Para reprogramar, usa el enlace de tu correo." };
+      const token = String(args.token_gestion ?? "");
+      const nuevoStartStr = String(args.nuevo_start ?? "");
+      if (!/^[0-9a-fA-F-]{36}$/.test(token) || !nuevoStartStr) {
+        return { error: "Faltan el token de gestión o el nuevo horario." };
+      }
+      const { data: cita, error } = await admin
+        .from("citas")
+        .select("*, cliente:clientes(*), servicio:servicios(*), profesional:profesionales(*)")
+        .eq("token_gestion", token)
+        .single();
+      if (error || !cita) return { error: "No se encontró la cita con ese token." };
+      if (cita.estado !== "confirmada") return { error: "Esta cita ya no es reprogramable." };
+
+      const cfg = await getConfig();
+      const rangoActual = parseRango(cita.rango_tiempo as string);
+      if (rangoActual.start - Date.now() < cfg.horas_limite_cancelacion * 3_600_000) {
+        return { error: `Ya no puedes reprogramar (límite ${cfg.horas_limite_cancelacion}h antes de la cita).` };
+      }
+
+      const nuevoStart = Date.parse(nuevoStartStr);
+      if (Number.isNaN(nuevoStart)) return { error: "Fecha inválida." };
+      if (nuevoStart < Date.now() + cfg.margen_anticipacion_horas * 3_600_000) {
+        return { error: "La nueva fecha no cumple el margen de anticipación." };
+      }
+
+      const disp = await consultarDisponibilidad({
+        servicioId: cita.servicio_id,
+        profesionalId: cita.profesional_id,
+        start: nuevoStart,
+        end: nuevoStart + cita.servicio.duracion_min * 60_000,
+      });
+      const match = disp.slots.find((s) => Date.parse(s.start) === nuevoStart);
+      if (!match) return { error: "El nuevo horario ya no está disponible." };
+
+      const endMs = nuevoStart + cita.servicio.duracion_min * 60_000 + cita.servicio.buffer_min * 60_000;
+      const nuevoRango = `["${new Date(nuevoStart).toISOString()}","${new Date(endMs).toISOString()}")`;
+      const { error: eUp } = await admin.from("citas").update({ rango_tiempo: nuevoRango }).eq("id", cita.id);
+      if (eUp) return { error: "No se pudo reprogramar la cita." };
+
+      const link = `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/mi-cita?token=${token}`;
+      await enviarCorreo("cita_modificada_cliente", {
+        to: cita.cliente.email,
+        nombre: cita.cliente.nombre,
+        servicio: cita.servicio.nombre,
+        profesional: cita.profesional.nombre,
+        fecha: new Date(nuevoStart).toISOString(),
+        link_gestion: link,
+      }).catch(() => {});
+      await enviarCorreo("cita_modificada_profesional", {
+        to: cita.profesional.email,
+        cliente: cita.cliente.nombre,
+        servicio: cita.servicio.nombre,
+        fecha: new Date(nuevoStart).toISOString(),
+      }).catch(() => {});
+      return { ok: true, nueva_fecha: new Date(nuevoStart).toISOString() };
     },
   };
 
   const { respuesta, fallback } = await chatConHerramientas({
-    sistema: SISTEMA,
-    mensajes: [{ role: "user", text: parsed.data.mensaje }],
+    sistema: await construirSistema(),
+    mensajes: [
+      ...(parsed.data.historial ?? []),
+      { role: "user", text: parsed.data.mensaje },
+    ],
     herramientas,
     handlers,
     tipo: "cliente",

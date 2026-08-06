@@ -20,6 +20,26 @@ const OFF = 5 * 3600 * 1000;
 const STEP_MIN = 15;
 const DAY_MS = 24 * 3600 * 1000;
 
+export async function citaConflicto(opts: {
+  profesionalId: string;
+  start: number;
+  end: number;
+}): Promise<{ id: string; rango_tiempo: string; estado: string; servicio?: { nombre?: string } | null } | null> {
+  const ventana = `["${iso(opts.start)}","${iso(opts.end)}")`;
+  const { data, error } = await admin
+    .from("citas")
+    .select("id, rango_tiempo, estado, servicio:servicios(nombre)")
+    .eq("profesional_id", opts.profesionalId)
+    .in("estado", ["confirmada", "pendiente"])
+    .filter("rango_tiempo", "ov", ventana)
+    .limit(1);
+  if (error) throw new Error("Error consultando conflicto de citas");
+  const c = (data ?? [])[0] as
+    | { id: string; rango_tiempo: string; estado: string; servicio?: { nombre?: string } | null }
+    | undefined;
+  return c ?? null;
+}
+
 function hmsToMs(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return ((h ?? 0) * 3600 + (m ?? 0) * 60) * 1000;

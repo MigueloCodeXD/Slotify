@@ -38,8 +38,14 @@ export async function actualizarConfigRequest(req: Request): Promise<Response> {
   if (d.horas_limite_cancelacion !== undefined) campos.horas_limite_cancelacion = d.horas_limite_cancelacion;
   if (d.direccion !== undefined) campos.direccion = d.direccion;
 
-  const { error } = await admin.from("config").update(campos).eq("true", true);
-  if (error) return json({ error: "No se pudo actualizar la configuración." }, 500);
+  const { data: fila } = await admin.from("config").select("id").limit(1).maybeSingle();
+  if (fila) {
+    const { error } = await admin.from("config").update(campos).eq("id", fila.id);
+    if (error) return json({ error: "No se pudo actualizar la configuración." }, 500);
+  } else {
+    const { error: eIns } = await admin.from("config").insert({ ...campos, nombre_negocio: campos.nombre_negocio ?? "Slotify" });
+    if (eIns) return json({ error: "No se pudo crear la configuración." }, 500);
+  }
 
   return json({ ok: true });
 }

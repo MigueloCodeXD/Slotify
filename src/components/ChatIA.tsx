@@ -67,6 +67,7 @@ export function ChatIA({
           mensaje: texto,
           ...(clienteId ? { cliente_id: clienteId } : {}),
           modo: soloInfo ? "info" : "gestion",
+          historial: mensajes.slice(-20).map((m) => ({ role: m.role === "user" ? "user" : "model", text: m.text })),
         },
         token
       );

@@ -11,13 +11,21 @@ export async function getUserFromRequest(req: Request): Promise<string | null> {
 }
 
 // Resuelve la fila `profesionales` a partir del user_id de la sesión.
+// Si el email cambió y no fue reconfirmado, devuelve data:null para bloquear
+// el acceso a todas las funciones hasta que el profesional confirme el nuevo email.
 export async function getProfesionalByUser(userId: string) {
   const { data, error } = await admin
     .from("profesionales")
-    .select("id, nombre, email, rol, activo, telefono, foto_url, cedula")
+    .select("id, nombre, email, rol, activo, telefono, foto_url, cedula, email_confirmado")
     .eq("user_id", userId)
     .maybeSingle();
   if (error) return { data: null, error };
+  if (data && data.email_confirmado === false) {
+    return {
+      data: null,
+      error: { message: "EMAIL_SIN_CONFIRMAR", code: "EMAIL_SIN_CONFIRMAR", details: "", hint: "" },
+    };
+  }
   return { data, error: null };
 }
 

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { ChipEstado } from "@/components/ui";
+import { Boton, ChipEstado } from "@/components/ui";
+import { llamarEdge } from "@/lib/api";
 import type { CitaCliente, Aviso } from "@/types";
 
 const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
@@ -37,10 +39,33 @@ function rango(c: CitaCliente): { start: string; end: string } {
 export function CitasList({
   citas,
   avisos,
+  sesion,
 }: {
   citas: CitaCliente[];
   avisos: Record<string, Aviso[]>;
+  sesion: string;
 }) {
+  const [contacto, setContacto] = useState<{ citaId: string; mensaje: string; enviando: boolean } | null>(null);
+  const [errorContacto, setErrorContacto] = useState<string | null>(null);
+
+  async function enviarContacto() {
+    if (!contacto) return;
+    setContacto({ ...contacto, enviando: true });
+    setErrorContacto(null);
+    try {
+      const res = await llamarEdge<{ mensaje: string }>("contactar-profesional", {
+        sesion,
+        cita_id: contacto.citaId,
+        mensaje: contacto.mensaje,
+      });
+      alert(res.mensaje);
+      setContacto(null);
+    } catch (e) {
+      setErrorContacto((e as Error).message);
+      setContacto((c) => (c ? { ...c, enviando: false } : c));
+    }
+  }
+
   if (citas.length === 0) {
     return (
       <p className="py-12 text-center text-violet-100">
@@ -85,13 +110,45 @@ export function CitasList({
             )}
 
             {c.estado === "confirmada" && (
-              <div className="mt-4">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Link
                   href={`/mi-cita?token=${c.token_gestion}`}
                   className="inline-block rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400/100"
                 >
                   Ver / gestionar
                 </Link>
+                <button
+                  onClick={() => setContacto({ citaId: c.id, mensaje: "", enviando: false })}
+                  className="rounded-xl border border-violet-300 px-4 py-2 text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
+                >
+                  Contactar
+                </button>
+              </div>
+            )}
+
+            {contacto?.citaId === c.id && (
+              <div className="mt-4 rounded-xl border border-violet-400/25 bg-violet-400/5 p-4">
+                <textarea
+                  value={contacto.mensaje}
+                  onChange={(e) => setContacto({ ...contacto, mensaje: e.target.value })}
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Escribe tu mensaje para el profesional…"
+                  className="w-full rounded-xl border border-white/10 bg-white/[0.06] p-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:outline-none"
+                />
+                {errorContacto && <p className="mt-2 text-xs text-rose-300">{errorContacto}</p>}
+                <div className="mt-3 flex gap-2">
+                  <Boton
+                    variante="primario"
+                    disabled={contacto.mensaje.trim().length < 5 || contacto.enviando}
+                    onClick={enviarContacto}
+                  >
+                    {contacto.enviando ? "Enviando…" : "Enviar mensaje"}
+                  </Boton>
+                  <Boton variante="claro" onClick={() => setContacto(null)}>
+                    Cancelar
+                  </Boton>
+                </div>
               </div>
             )}
           </div>

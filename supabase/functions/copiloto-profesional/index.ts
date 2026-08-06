@@ -7,9 +7,10 @@ import { chatConHerramientas, type ToolDef } from "../_shared/gemini.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 import { consultarDisponibilidad, getConfig, citaConflicto } from "../_shared/disponibilidad.ts";
 import { contextoHoy, contextoNegocio, hoyIso } from "../_shared/contexto.ts";
+import { getTZ, dayStartUtc, diaLocalIso } from "../_shared/time.ts";
 
 async function construirSistema(soloInfo: boolean, prof: { nombre: string; rol: string }): Promise<string> {
-  const hoy = contextoHoy();
+  const hoy = await contextoHoy();
   const negocio = await contextoNegocio();
   return `Eres el copiloto de un profesional en un negocio de citas (Slotify${negocio ? `: ${negocio}` : ""}).
 Profesional autenticado: ${prof.nombre} (rol: ${prof.rol}).
@@ -365,11 +366,12 @@ export async function copilotoRequest(req: Request): Promise<Response> {
 
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
     consultar_agenda_dia: async (args) => {
-      const hoy = hoyIso();
+      const tz = await getTZ();
+      const hoy = await hoyIso();
       const desde = String(args.desde ?? hoy);
       const hasta = String(args.hasta ?? desde);
-      const desdeMs = Date.parse(`${desde}T05:00:00Z`);
-      const hastaMs = Date.parse(`${hasta}T05:00:00Z`) + 24 * 3600 * 1000;
+      const desdeMs = dayStartUtc(Date.parse(`${desde}T12:00:00Z`), tz);
+      const hastaMs = dayStartUtc(Date.parse(`${hasta}T12:00:00Z`), tz) + 24 * 3600 * 1000;
       const ventana = `["${new Date(desdeMs).toISOString()}","${new Date(hastaMs).toISOString()}")`;
       const [citasRes, bloqueosRes] = await Promise.all([
         admin
@@ -386,7 +388,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       ]);
       const citas = (citasRes.data ?? []).map((c) => ({ ...c, rango_tiempo: parseRango(c.rango_tiempo as string) }));
       const bloqueos = (bloqueosRes.data ?? []).map((b) => ({ id: b.id, motivo: b.motivo, rango_tiempo: parseRango(b.rango_tiempo as string) }));
-      return { citas, bloqueos, timezone: Deno.env.get("APP_TIMEZONE") ?? "America/Bogota" };
+      return { citas, bloqueos, timezone: tz };
     },
     consultar_historial_cliente: async () => {
       if (!contextoCliente) return { error: "No hay cliente en contexto." };
@@ -1016,19 +1018,19 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       return { ok: true };
     },
     resumen_negocio: async () => {
-      const TZ = Deno.env.get("APP_TIMEZONE") ?? "America/Bogota";
+      const tz = await getTZ();
       const DIA_MS = 24 * 3600 * 1000;
-      const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date());
-      const hoyInicioMs = Date.parse(`${hoy}T05:00:00Z`);
+      const hoy = diaLocalIso(Date.now(), tz);
+      const hoyInicioMs = dayStartUtc(Date.now(), tz);
       const diaFinMs = hoyInicioMs + DIA_MS;
       const hoyVentana = `["${new Date(hoyInicioMs).toISOString()}","${new Date(diaFinMs).toISOString()}")`;
       const mes = hoy.slice(0, 7);
-      const mesInicioMs = Date.parse(`${mes}-01T05:00:00Z`);
+      const mesInicioMs = dayStartUtc(Date.parse(`${mes}-01T12:00:00Z`), tz);
       const proxMes = (() => {
         const d = new Date(mesInicioMs + 32 * DIA_MS);
         return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
       })();
-      const mesFinMs = Date.parse(`${proxMes}-01T05:00:00Z`);
+      const mesFinMs = dayStartUtc(Date.parse(`${proxMes}-01T12:00:00Z`), tz);
       const mesVentana = `["${new Date(mesInicioMs).toISOString()}","${new Date(mesFinMs).toISOString()}")`;
       const proximaVentana = `["${new Date(hoyInicioMs).toISOString()}","${new Date(diaFinMs + 8 * DIA_MS).toISOString()}")`;
       const base = "id, rango_tiempo, estado, servicio:servicios(id,nombre,precio,duracion_min), cliente:clientes(nombre,email)";

@@ -120,6 +120,14 @@ export async function createCitaRequest(req: Request): Promise<Response> {
     clienteId = nuevo!.id;
   }
 
+  // Aviso: si el cliente faltó a citas anteriores, lo informamos al profesional.
+  const { count: noShows } = await admin
+    .from("citas")
+    .select("id", { count: "exact", head: true })
+    .eq("cliente_id", clienteId)
+    .eq("estado", "no_show");
+  const avisoNoShow = (noShows ?? 0) >= 1 ? { no_mostradas: noShows ?? 0, aviso: "Este cliente faltó en citas anteriores." } : null;
+
   const { data: cita, error: eIns } = await admin
     .from("citas")
     .insert({
@@ -171,6 +179,7 @@ export async function createCitaRequest(req: Request): Promise<Response> {
     ok: true,
     cita: { ...cita, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString() },
     link_gestion: link,
+    aviso_cliente: avisoNoShow,
   });
 }
 

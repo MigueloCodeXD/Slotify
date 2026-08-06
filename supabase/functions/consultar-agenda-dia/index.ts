@@ -3,6 +3,7 @@ import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
+import { getTZ, dayStartUtc, utcOffset } from "../_shared/time.ts";
 
 const schema = z.object({
   desde: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -10,7 +11,7 @@ const schema = z.object({
   profesional_id: z.string().uuid().optional().nullable(),
 });
 
-const OFF = 5 * 3600 * 1000;
+const DAY_MS = 24 * 3600 * 1000;
 
 function norm(s: string): string {
   return s.trim().replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00");
@@ -46,8 +47,9 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
   if ("error" in objetivo) return objetivo.error;
   const target = objetivo.data;
 
-  const desdeMs = Date.parse(`${d.desde}T05:00:00Z`);
-  const hastaMs = Date.parse(`${d.hasta}T05:00:00Z`) + 24 * 3600 * 1000;
+  const tz = await getTZ();
+  const desdeMs = dayStartUtc(Date.parse(`${d.desde}T12:00:00Z`), tz);
+  const hastaMs = dayStartUtc(Date.parse(`${d.hasta}T12:00:00Z`), tz) + DAY_MS;
   const ventana = `["${new Date(desdeMs).toISOString()}","${new Date(hastaMs).toISOString()}")`;
 
   const { data: citas, error } = await admin
@@ -75,7 +77,7 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
     rango_tiempo: undefined,
   }));
 
-  return json({ citas: citasOut, bloqueos: bloqueosOut, timezone: "America/Bogota", offset: OFF });
+  return json({ citas: citasOut, bloqueos: bloqueosOut, timezone: tz, offset: utcOffset(Date.now(), tz) });
 }
 
 serve(async (req) => {

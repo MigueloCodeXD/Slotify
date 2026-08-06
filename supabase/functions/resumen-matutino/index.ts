@@ -3,6 +3,8 @@ import { corsHeaders } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { esServiceRole } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
+import { getTZ, dayStartUtc, diaLocalIso } from "../_shared/time.ts";
+import { registrar } from "../_shared/logging.ts";
 
 function norm(s: string): string {
   return s.trim().replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00");
@@ -19,8 +21,9 @@ export async function resumenRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (!esServiceRole(req)) return json({ error: "No autorizado." }, 401);
 
-  const fecha = new Date().toISOString().slice(0, 10);
-  const desdeMs = Date.parse(`${fecha}T05:00:00Z`);
+  const tz = await getTZ();
+  const fecha = diaLocalIso(Date.now(), tz);
+  const desdeMs = dayStartUtc(Date.now(), tz);
   const hastaMs = desdeMs + 24 * 3600 * 1000;
   const ventana = `["${new Date(desdeMs).toISOString()}","${new Date(hastaMs).toISOString()}")`;
 
@@ -59,7 +62,7 @@ export async function resumenRequest(req: Request): Promise<Response> {
           `<tr><td style="padding:8px;border-bottom:1px solid #eee">${new Date(c.start).toLocaleString("es", {
             hour: "2-digit",
             minute: "2-digit",
-            timeZone: Deno.env.get("APP_TIMEZONE") ?? "America/Bogota",
+            timeZone: tz,
           })}</td><td style="padding:8px;border-bottom:1px solid #eee">${c.cliente}</td><td style="padding:8px;border-bottom:1px solid #eee">${c.servicio}</td></tr>`
       )
       .join("");
@@ -71,6 +74,7 @@ export async function resumenRequest(req: Request): Promise<Response> {
     enviados++;
   }
 
+  registrar("resumen-matutino", "info", "resumen_generado", { fecha, profesionales_notificados: enviados });
   return json({ ok: true, fecha, profesionales_notificados: enviados });
 }
 

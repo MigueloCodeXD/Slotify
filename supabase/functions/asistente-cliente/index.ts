@@ -7,9 +7,10 @@ import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts
 import { enviarCorreo } from "../_shared/brevo.ts";
 import { verificarSesionCliente } from "../_shared/token.ts";
 import { contextoHoy, contextoNegocio, hoyIso } from "../_shared/contexto.ts";
+import { getTZ, dayStartUtc } from "../_shared/time.ts";
 
 async function construirSistema(): Promise<string> {
-  const hoy = contextoHoy();
+  const hoy = await contextoHoy();
   const negocio = await contextoNegocio();
   return `Eres el asistente de agendamiento de un negocio (Slotify${negocio ? `: ${negocio}` : ""}). Ayudas al cliente a
 elegir servicio, profesional y horario, y a agendar o gestionar citas.
@@ -123,11 +124,12 @@ export async function asistenteRequest(req: Request): Promise<Response> {
       return { servicios: data ?? [] };
     },
     consultar_disponibilidad: async (args) => {
+      const tz = await getTZ();
       const servicio_id = String(args.servicio_id ?? "");
-      const fecha = String(args.fecha ?? hoyIso());
+      const fecha = String(args.fecha ?? await hoyIso());
       const profesional_id = args.profesional_id ? String(args.profesional_id) : null;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return { error: "Fecha inválida" };
-      const startMs = Date.parse(`${fecha}T05:00:00Z`);
+      const startMs = dayStartUtc(Date.parse(`${fecha}T12:00:00Z`), tz);
       const { slots } = await consultarDisponibilidad({
         servicioId: servicio_id,
         profesionalId: profesional_id,

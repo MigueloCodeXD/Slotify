@@ -1,5 +1,10 @@
+import { EmailGate } from "@/components/EmailGate";
 import { PanelCalendario } from "@/components/PanelCalendario";
 
 export default function Page() {
-  return <PanelCalendario />;
+  return (
+    <EmailGate>
+      <PanelCalendario />
+    </EmailGate>
+  );
 }

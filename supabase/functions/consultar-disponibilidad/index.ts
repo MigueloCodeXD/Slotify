@@ -3,6 +3,7 @@ import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { json } from "../_shared/db.ts";
 import { consultarDisponibilidad } from "../_shared/disponibilidad.ts";
+import { getTZ, dayStartUtc, diaLocalIso } from "../_shared/time.ts";
 
 const schema = z.object({
   servicio_id: z.string().uuid(),
@@ -11,7 +12,6 @@ const schema = z.object({
   dias: z.number().int().min(1).max(7).optional().default(1),
 });
 
-const OFF = 5 * 3600 * 1000;
 const DAY_MS = 24 * 3600 * 1000;
 
 export async function disponibilidadRequest(req: Request): Promise<Response> {
@@ -28,7 +28,8 @@ export async function disponibilidadRequest(req: Request): Promise<Response> {
   if (!parsed.success) return json({ error: "Datos inválidos", detalle: parsed.error.flatten() }, 400);
   const d = parsed.data;
 
-  const startMs = Date.parse(`${d.fecha}T05:00:00Z`);
+  const tz = await getTZ();
+  const startMs = dayStartUtc(Date.parse(`${d.fecha}T12:00:00Z`), tz);
   const endMs = startMs + d.dias * DAY_MS;
 
   const { slots, ocupados } = await consultarDisponibilidad({
@@ -40,7 +41,7 @@ export async function disponibilidadRequest(req: Request): Promise<Response> {
 
   const porDia: Record<string, { profesional_id: string; start: string; end: string }[]> = {};
   for (const s of slots) {
-    const key = new Date(Date.parse(s.start) - OFF).toISOString().slice(0, 10);
+    const key = diaLocalIso(Date.parse(s.start), tz);
     (porDia[key] ??= []).push(s);
   }
 

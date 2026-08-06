@@ -5,11 +5,19 @@ import { Navbar } from "@/components/Navbar";
 import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
 import { CitasList } from "@/components/CitasList";
 import { llamarEdge } from "@/lib/api";
+import { useToast } from "@/components/Toast";
 import type { CitaCliente, Aviso } from "@/types";
 
 type Etapa = "email" | "codigo" | "lista";
 
 const CLAVE_SESION = "slotify_sesion";
+
+interface PerfilCliente {
+  id: string;
+  nombre: string;
+  email: string;
+  telefono: string | null;
+}
 
 export default function MisCitas() {
   const [etapa, setEtapa] = useState<Etapa>("email");
@@ -21,6 +29,10 @@ export default function MisCitas() {
   const [citas, setCitas] = useState<CitaCliente[]>([]);
   const [avisos, setAvisos] = useState<Record<string, Aviso[]>>({});
   const [restaurando, setRestaurando] = useState(true);
+  const [perfil, setPerfil] = useState<PerfilCliente | null>(null);
+  const [guardandoPerfil, setGuardandoPerfil] = useState(false);
+  const [sesion, setSesion] = useState("");
+  const { notificar } = useToast();
 
   async function solicitar() {
     setCargando(true);
@@ -48,6 +60,7 @@ export default function MisCitas() {
         codigo,
       });
       sessionStorage.setItem(CLAVE_SESION, res.sesion);
+      setSesion(res.sesion);
       await cargar(res.sesion);
       setEtapa("lista");
     } catch (e) {
@@ -65,12 +78,32 @@ export default function MisCitas() {
   }
 
   async function cargar(s: string) {
-    const res = await llamarEdge<{ citas: CitaCliente[]; avisos: Record<string, Aviso[]> }>(
+    const res = await llamarEdge<{ citas: CitaCliente[]; avisos: Record<string, Aviso[]>; cliente: PerfilCliente | null }>(
       "consultar-mis-citas",
       { sesion: s }
     );
     setCitas(res.citas);
     setAvisos(res.avisos ?? {});
+    setPerfil(res.cliente);
+  }
+
+  async function guardarPerfil(e: React.FormEvent) {
+    e.preventDefault();
+    if (!sesion || !perfil) return;
+    setGuardandoPerfil(true);
+    try {
+      const res = await llamarEdge<{ cliente: PerfilCliente }>("editar-perfil-cliente", {
+        sesion,
+        nombre: perfil.nombre,
+        telefono: perfil.telefono ?? "",
+      });
+      setPerfil(res.cliente);
+      notificar("Perfil actualizado.", "exito");
+    } catch (err) {
+      notificar((err as Error).message, "error");
+    } finally {
+      setGuardandoPerfil(false);
+    }
   }
 
   useEffect(() => {
@@ -80,7 +113,10 @@ export default function MisCitas() {
       return;
     }
     cargar(guardada)
-      .then(() => setEtapa("lista"))
+      .then(() => {
+        setSesion(guardada);
+        setEtapa("lista");
+      })
       .catch(() => {
         sessionStorage.removeItem(CLAVE_SESION);
         setEtapa("email");
@@ -170,7 +206,39 @@ export default function MisCitas() {
 
         {etapa === "lista" && !restaurando && (
           <>
-            <CitasList citas={citas} avisos={avisos} />
+            {perfil && (
+              <Tarjeta className="mb-6 p-6">
+                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violet-300">
+                  Mi perfil
+                </h2>
+                <form onSubmit={guardarPerfil} className="space-y-4">
+                  <Campo
+                    label="Nombre"
+                    value={perfil.nombre}
+                    onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })}
+                    className="text-zinc-100 border-white/10 bg-white/[0.06] focus:border-violet-400 focus:ring-violet-300"
+                  />
+                  <Campo
+                    label="Email"
+                    type="email"
+                    value={perfil.email}
+                    disabled
+                    className="text-zinc-100 border-white/10 bg-white/[0.06] focus:border-violet-400 focus:ring-violet-300"
+                  />
+                  <Campo
+                    label="Teléfono"
+                    placeholder="+57 300 000 0000"
+                    value={perfil.telefono ?? ""}
+                    onChange={(e) => setPerfil({ ...perfil, telefono: e.target.value })}
+                    className="text-zinc-100 border-white/10 bg-white/[0.06] focus:border-violet-400 focus:ring-violet-300"
+                  />
+                  <Boton variante="primario" disabled={guardandoPerfil || perfil.nombre.trim().length < 2}>
+                    {guardandoPerfil ? <Spinner /> : "Guardar perfil"}
+                  </Boton>
+                </form>
+              </Tarjeta>
+            )}
+            <CitasList citas={citas} avisos={avisos} sesion={sesion} />
             <div className="mt-6 text-center">
               <button
                 onClick={cambiarCorreo}

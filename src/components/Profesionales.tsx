@@ -18,6 +18,7 @@ interface ProfGestion {
   activo: boolean;
   vinculado: boolean;
   yo: boolean;
+  email_confirmado: boolean;
   servicios: number;
   invitacion_pendiente: boolean;
 }
@@ -127,6 +128,20 @@ export function Profesionales() {
     const token = (await getTokenSesion()) ?? undefined;
     try {
       const res = await llamarEdge<{ mensaje: string }>("gestionar-profesionales", { accion: "reenviar_invitacion", id: p.id }, token);
+      notificar(res.mensaje, "exito");
+    } catch (err) {
+      notificar((err as Error).message, "error");
+    }
+  }
+
+  async function reenviarConfirmacionEmail(p: ProfGestion) {
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      const res = await llamarEdge<{ mensaje: string }>(
+        "gestionar-profesionales",
+        { accion: "reenviar_confirmacion_email", id: p.id },
+        token
+      );
       notificar(res.mensaje, "exito");
     } catch (err) {
       notificar((err as Error).message, "error");
@@ -244,6 +259,11 @@ export function Profesionales() {
                   Vinculado
                 </span>
               )}
+              {p.vinculado && !p.email_confirmado && (
+                <span className="rounded-full border border-amber-300/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                  Email sin confirmar
+                </span>
+              )}
               <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-zinc-300">
                 {p.servicios} servicios
               </span>
@@ -262,6 +282,11 @@ export function Profesionales() {
               {!p.vinculado && (
                 <Boton variante="fantasma" className="px-3 py-1.5 text-xs" onClick={() => reenviarInvitacion(p)}>
                   Reenviar invitación
+                </Boton>
+              )}
+              {p.vinculado && !p.email_confirmado && (
+                <Boton variante="fantasma" className="px-3 py-1.5 text-xs" onClick={() => reenviarConfirmacionEmail(p)}>
+                  Reenviar confirmación de email
                 </Boton>
               )}
               {!p.yo && (

@@ -1,3 +1,5 @@
+import { getTZ, zonaSegura } from "./time.ts";
+
 export type EmailTipo =
   | "cita_creada_cliente"
   | "cita_creada_profesional"
@@ -11,18 +13,19 @@ export type EmailTipo =
   | "aviso_profesional_cliente"
   | "resumen_matutino"
   | "recordatorio_cita_cliente"
-  | "recordatorio_cita_profesional";
+  | "recordatorio_cita_profesional"
+  | "contacto_cliente_profesional";
 
 export interface DatosEmail {
   to: string;
   [key: string]: unknown;
 }
 
-function formatFecha(iso: string | Date): string {
+function formatFecha(iso: string | Date, tz = "America/Bogota"): string {
   return new Intl.DateTimeFormat("es", {
     dateStyle: "full",
     timeStyle: "short",
-    timeZone: "America/Bogota",
+    timeZone: zonaSegura(tz),
   }).format(new Date(iso));
 }
 
@@ -211,6 +214,21 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
       `, 'Recordatorio de cita · ' + negocio);
       return { subject, html };
     }
+    case "contacto_cliente_profesional": {
+      const subject = `Un cliente quiere contactarte · ${negocio}`;
+      const html = plantilla(`
+        <p>Hola <strong>{{nombre}}</strong>, el cliente <strong>{{cliente}}</strong> quiere ponerse en contacto contigo:</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f6fc;border-radius:12px;padding:16px;margin:16px 0">
+          <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Email</td><td style="padding:4px 0;font-weight:bold">{{email_cliente}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Teléfono</td><td style="padding:4px 0;font-weight:bold">{{telefono_cliente}}</td></tr>
+        </table>
+        <p style="color:#6b6480">Mensaje:</p>
+        <blockquote style="border-left:4px solid #a855f7;margin:16px 0;padding:12px 16px;background:#f8f6fc">{{mensaje}}</blockquote>
+      `, `Contacto de cliente · ${negocio}`);
+      return { subject, html };
+    }
   }
 }
 
@@ -233,12 +251,13 @@ export async function enviarCorreo(tipo: EmailTipo, datos: DatosEmail): Promise<
 
   // Interpola {{clave}} con los datos reales antes de enviar, para que los
   // valores no queden vacíos (Brevo SMTP no rellena placeholders por sí solo).
-  const variables = { ...datos, negocio: datos.negocio ?? "Slotify" };
+  const variables: Record<string, unknown> = { ...datos, negocio: datos.negocio ?? "Slotify" };
+  const tz = await getTZ();
   const render = (s: string): string =>
     s.replace(/\{\{(\w+)\}\}/g, (_, k: string) => {
       if (k === "fecha" && variables[k]) {
         try {
-          return formatFecha(variables[k] as string | Date);
+          return formatFecha(variables[k] as string | Date, tz);
         } catch {
           return escaparHTML(variables[k]);
         }

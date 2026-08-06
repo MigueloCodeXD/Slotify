@@ -5,6 +5,7 @@ import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
+import { logInfo, logError } from "../_shared/logging.ts";
 
 const HORAS_CONFIRMAR = 6;
 
@@ -46,6 +47,17 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
   if ("error" in objetivo) return objetivo.error;
   const target = objetivo.data;
 
+  // Rate limit: máx 15 citas por profesional en 1 minuto (evita dobles envíos/abuso).
+  const ventanaMs = 60 * 1000;
+  const { count } = await admin
+    .from("citas")
+    .select("id", { count: "exact", head: true })
+    .eq("profesional_id", target.id)
+    .gte("created_at", new Date(Date.now() - ventanaMs).toISOString());
+  if ((count ?? 0) >= 15) {
+    return json({ error: "Demasiadas solicitudes. Intenta en un momento." }, 429);
+  }
+
   // Cliente: por id, o por email (reutiliza/crea)
   let clienteId = d.cliente_id ?? null;
   if (!clienteId) {
@@ -69,6 +81,14 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
       clienteId = nuevo!.id;
     }
   }
+
+  // Aviso: si el cliente faltó a citas anteriores, lo informamos al profesional.
+  const { count: noShows } = await admin
+    .from("citas")
+    .select("id", { count: "exact", head: true })
+    .eq("cliente_id", clienteId)
+    .eq("estado", "no_show");
+  const avisoNoShow = (noShows ?? 0) >= 1 ? { no_mostradas: noShows ?? 0, aviso: "Este cliente faltó en citas anteriores." } : null;
 
   const startMs = Date.parse(d.start);
   if (Number.isNaN(startMs)) return json({ error: "Fecha inválida" }, 400);
@@ -148,11 +168,20 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     negocio: config?.nombre_negocio ?? "Slotify",
   }).catch(() => {});
 
+  logInfo("crear-cita-profesional", "cita_creada", {
+    cita_id: cita.id,
+    profesional_id: target.id,
+    cliente_id: clienteId,
+    servicio_id: servicio.id,
+    estado: cita.estado,
+  });
+
   return json({
     ok: true,
     cita: { ...cita, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString() },
     confirmacion_expira_horas: HORAS_CONFIRMAR,
     link_confirmar: linkConfirmar,
+    aviso_cliente: avisoNoShow,
   });
 }
 
@@ -162,7 +191,7 @@ serve(async (req) => {
     const body = await res.text();
     return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    console.error(err);
+    logError("crear-cita-profesional", "excepcion", { mensaje: (err as Error).message });
     return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
   }
 });

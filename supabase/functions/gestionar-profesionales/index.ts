@@ -6,7 +6,7 @@ import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 
 const schema = z.object({
-  accion: z.enum(["listar", "editar", "eliminar", "asignar_servicios", "reenviar_invitacion"]),
+  accion: z.enum(["listar", "editar", "eliminar", "asignar_servicios", "reenviar_invitacion", "reenviar_confirmacion_email"]),
   id: z.string().uuid().optional(),
   nombre: z.string().min(2).max(120).optional(),
   email: z.string().email().max(255).optional(),
@@ -59,6 +59,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
           activo: p.activo,
           vinculado: Boolean(p.user_id),
           yo: p.id === adminProf.id,
+          email_confirmado: p.email_confirmado !== false,
           servicios: nServicios[p.id] ?? 0,
           invitacion_pendiente: pendiente.has(p.id),
         })),
@@ -75,14 +76,21 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
       if (d.telefono !== undefined) campos.telefono = d.telefono;
       if (d.email !== undefined) {
         const email = d.email.toLowerCase();
-        const { data: dup } = await admin
-          .from("profesionales")
-          .select("id")
-          .eq("email", email)
-          .neq("id", d.id)
-          .maybeSingle();
-        if (dup) return json({ error: "Ese email ya pertenece a otro profesional." }, 400);
-        campos.email = email;
+        if (email !== prof.email) {
+          const { data: dup } = await admin
+            .from("profesionales")
+            .select("id")
+            .eq("email", email)
+            .neq("id", d.id)
+            .maybeSingle();
+          if (dup) return json({ error: "Ese email ya pertenece a otro profesional." }, 400);
+          campos.email = email;
+          // Cambio de email => requiere re-confirmación (el email es la llave de acceso).
+          campos.email_confirmado = false;
+          if (prof.user_id) {
+            await admin.auth.admin.updateUserById(prof.user_id, { email, email_confirm: false }).catch(() => {});
+          }
+        }
       }
       if (d.rol !== undefined) campos.rol = d.rol;
       if (d.activo !== undefined) campos.activo = d.activo;
@@ -193,6 +201,27 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
         negocio: "Slotify",
       }).catch(() => {});
       return json({ ok: true, mensaje: "Invitación reenviada." });
+    }
+
+    case "reenviar_confirmacion_email": {
+      if (!d.id) return json({ error: "Falta id." }, 400);
+      const { data: prof } = await admin
+        .from("profesionales")
+        .select("id, nombre, email, user_id, email_confirmado")
+        .eq("id", d.id)
+        .single();
+      if (!prof) return json({ error: "No se encontró el profesional." }, 404);
+      if (prof.email_confirmado !== false) {
+        return json({ error: "El email ya está confirmado." }, 400);
+      }
+      if (prof.user_id) {
+        const { error: eAuth } = await admin.auth.admin.updateUserById(prof.user_id, {
+          email: prof.email,
+          email_confirm: false,
+        });
+        if (eAuth) return json({ error: "No se pudo enviar la confirmación." }, 500);
+      }
+      return json({ ok: true, mensaje: "Confirmación enviada a tu nuevo email." });
     }
   }
 }

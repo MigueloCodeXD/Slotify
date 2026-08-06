@@ -41,6 +41,9 @@ export interface CitaCliente {
   notas: string | null;
   confirmacion_pendiente?: boolean | null;
   confirmacion_expira_at?: string | null;
+  precio_servicio?: number | null;
+  anticipo?: number | null;
+  estado_pago?: "pendiente" | "parcial" | "pagado" | null;
   token_gestion: string;
   servicio: ServicioPublico | null;
   profesional: ProfesionalPublico | null;

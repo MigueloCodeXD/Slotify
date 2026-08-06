@@ -24,6 +24,11 @@ function fmt(iso: string): string {
   }).format(new Date(iso));
 }
 
+function fmtMoneda(v: number): string {
+  const n = Number(v ?? 0);
+  return "$" + (Number.isFinite(n) ? n : 0).toFixed(2);
+}
+
 function rango(c: CitaCliente): { start: string; end: string } {
   const r = c.rango_tiempo as unknown;
   if (typeof r === "string") {
@@ -177,6 +182,29 @@ export function MiCita() {
             </div>
             <ChipEstado estado={cita.estado} />
           </div>
+
+          {(cita.estado === "confirmada" || cita.estado === "completada") && (
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-zinc-300">
+              <span>
+                Total:{" "}
+                <span className="font-mono font-semibold text-white">
+                  {fmtMoneda(Number(cita.precio_servicio ?? cita.servicio?.precio ?? 0))}
+                </span>
+              </span>
+              {Number(cita.anticipo ?? 0) > 0 && (
+                <span>
+                  Anticipo:{" "}
+                  <span className="font-mono font-semibold text-amber-200">
+                    {fmtMoneda(cita.anticipo ?? 0)}
+                  </span>
+                </span>
+              )}
+              <span className="capitalize">
+                Pago:{" "}
+                <span className="font-semibold text-emerald-200">{cita.estado_pago ?? "pendiente"}</span>
+              </span>
+            </div>
+          )}
 
           {avisos[cita.id] && avisos[cita.id].length > 0 && (
             <div className="mt-4 space-y-2">

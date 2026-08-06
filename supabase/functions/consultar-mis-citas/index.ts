@@ -46,10 +46,10 @@ export async function misCitasRequest(req: Request): Promise<Response> {
 
   const { data: cliente } = await admin
     .from("clientes")
-    .select("id")
+    .select("id, nombre, email, telefono")
     .eq("email", sesion.email)
     .maybeSingle();
-  if (!cliente) return json({ citas: [], avisos: {} });
+  if (!cliente) return json({ citas: [], avisos: {}, cliente: null });
 
   const { data: citas } = await admin
     .from("citas")
@@ -72,7 +72,7 @@ export async function misCitasRequest(req: Request): Promise<Response> {
   const agrupados: Record<string, typeof avisos> = {};
   for (const av of avisos) (agrupados[av.cita_id] ??= []).push(av);
 
-  return json({ citas: citas ?? [], avisos: agrupados });
+  return json({ citas: citas ?? [], avisos: agrupados, cliente });
 }
 
 serve(async (req) => {

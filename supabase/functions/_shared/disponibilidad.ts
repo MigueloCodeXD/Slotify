@@ -1,4 +1,5 @@
 import { admin } from "./db.ts";
+import { getTZ, dayStartUtc, wallWeekday } from "./time.ts";
 
 export interface Slot {
   start: string;
@@ -15,8 +16,6 @@ export interface DatosConfig {
   horas_limite_cancelacion: number;
 }
 
-// America/Bogota es UTC-5, sin horario de verano.
-const OFF = 5 * 3600 * 1000;
 const STEP_MIN = 15;
 const DAY_MS = 24 * 3600 * 1000;
 
@@ -43,15 +42,6 @@ export async function citaConflicto(opts: {
 function hmsToMs(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return ((h ?? 0) * 3600 + (m ?? 0) * 60) * 1000;
-}
-
-function dayStartUtc(utcMs: number): number {
-  const w = new Date(utcMs - OFF);
-  return Date.UTC(w.getUTCFullYear(), w.getUTCMonth(), w.getUTCDate()) + OFF;
-}
-
-function wallWeekday(utcMs: number): number {
-  return new Date(utcMs - OFF).getUTCDay();
 }
 
 function iso(utcMs: number): string {
@@ -192,15 +182,16 @@ export async function consultarDisponibilidad(opts: {
     });
   }
 
+  const tz = await getTZ();
   const slots: { profesional_id: string; start: string; end: string }[] = [];
   const ocupados: { profesional_id: string; start: string; end: string }[] = [];
 
   for (
-    let dayStart = dayStartUtc(opts.start);
+    let dayStart = dayStartUtc(opts.start, tz);
     dayStart < opts.end + durMs;
     dayStart += DAY_MS
   ) {
-    const wd = wallWeekday(dayStart);
+    const wd = wallWeekday(dayStart, tz);
 
     for (const pid of idsActivos) {
       const periodos = periodosPorProf[pid]?.filter((p) => p.dia === wd) ?? [];

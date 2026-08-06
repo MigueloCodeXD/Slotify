@@ -1,22 +1,17 @@
 import { admin } from "./db.ts";
+import { getTZ, diaLocalIso } from "./time.ts";
 
-const TZ = Deno.env.get("APP_TIMEZONE") ?? "America/Bogota";
-
-export function contextoHoy(): string {
+export async function contextoHoy(): Promise<string> {
+  const tz = await getTZ();
   const ahora = new Date();
-  const fecha = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(ahora);
+  const fecha = diaLocalIso(ahora.getTime(), tz);
   const hora = new Intl.DateTimeFormat("en-GB", {
-    timeZone: TZ,
+    timeZone: tz,
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   }).format(ahora);
-  return `Hoy es ${fecha} (${hora}) · Zona horaria: ${TZ}`;
+  return `Hoy es ${fecha} (${hora}) · Zona horaria: ${tz}`;
 }
 
 export async function contextoNegocio(): Promise<string> {
@@ -28,11 +23,7 @@ export async function contextoNegocio(): Promise<string> {
   return nombre || "";
 }
 
-export function hoyIso(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+export async function hoyIso(): Promise<string> {
+  const tz = await getTZ();
+  return diaLocalIso(Date.now(), tz);
 }

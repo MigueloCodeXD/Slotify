@@ -10,6 +10,7 @@ const schema = z.object({
   margen_anticipacion_horas: z.number().int().min(0).optional(),
   horas_limite_cancelacion: z.number().int().min(0).optional(),
   direccion: z.string().max(500).optional().nullable(),
+  descripcion: z.string().max(2000).optional().nullable(),
 });
 
 export async function actualizarConfigRequest(req: Request): Promise<Response> {
@@ -37,6 +38,7 @@ export async function actualizarConfigRequest(req: Request): Promise<Response> {
   if (d.margen_anticipacion_horas !== undefined) campos.margen_anticipacion_horas = d.margen_anticipacion_horas;
   if (d.horas_limite_cancelacion !== undefined) campos.horas_limite_cancelacion = d.horas_limite_cancelacion;
   if (d.direccion !== undefined) campos.direccion = d.direccion;
+  if (d.descripcion !== undefined) campos.descripcion = d.descripcion;
 
   const { data: fila } = await admin.from("config").select("id").limit(1).maybeSingle();
   if (fila) {

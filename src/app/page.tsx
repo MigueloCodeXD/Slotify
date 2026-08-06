@@ -58,6 +58,11 @@ export default function Home() {
             Agenda tu cita en segundos. Elige tu servicio, el profesional y el
             horario que mejor te convenga.
           </p>
+          {config?.descripcion && (
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-violet-200/70 sm:text-base">
+              {config.descripcion}
+            </p>
+          )}
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <a
               href="#servicios"

@@ -4,12 +4,12 @@ export interface Config {
   margen_anticipacion_horas: number;
   horas_limite_cancelacion: number;
   direccion: string | null;
+  descripcion: string | null;
 }
 
 export interface ProfesionalPublico {
   id: string;
   nombre: string;
-  foto_url: string | null;
 }
 
 export interface ServicioPublico {
@@ -60,7 +60,7 @@ export interface Profesional {
   nombre: string;
   email: string;
   telefono: string | null;
-  foto_url: string | null;
+  cargo?: string | null;
   rol: "admin" | "profesional";
   activo: boolean;
   cedula?: string | null;

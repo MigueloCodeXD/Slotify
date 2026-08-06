@@ -26,7 +26,7 @@ export async function misCitasRequest(req: Request): Promise<Response> {
   if (parsed.data.token_gestion) {
     const { data: cita } = await admin
       .from("citas")
-      .select("*, servicio:servicios(id,nombre,descripcion,precio,duracion_min), profesional:profesionales(id,nombre,foto_url)")
+      .select("*, servicio:servicios(id,nombre,descripcion,precio,duracion_min), profesional:profesionales(id,nombre)")
       .eq("token_gestion", parsed.data.token_gestion)
       .single();
     if (!cita) return json({ error: "No se encontró la cita." }, 404);
@@ -53,7 +53,7 @@ export async function misCitasRequest(req: Request): Promise<Response> {
 
   const { data: citas } = await admin
     .from("citas")
-    .select("*, servicio:servicios(id,nombre,descripcion,precio,duracion_min), profesional:profesionales(id,nombre,foto_url)")
+    .select("*, servicio:servicios(id,nombre,descripcion,precio,duracion_min), profesional:profesionales(id,nombre)")
     .eq("cliente_id", cliente.id)
     .order("created_at", { ascending: false });
 

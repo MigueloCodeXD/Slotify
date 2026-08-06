@@ -14,6 +14,7 @@ interface ProfGestion {
   nombre: string;
   email: string;
   telefono: string | null;
+  cargo: string | null;
   rol: "admin" | "profesional";
   activo: boolean;
   vinculado: boolean;
@@ -32,7 +33,7 @@ export function Profesionales() {
   const [invitar, setInvitar] = useState({ nombre: "", email: "" });
 
   const [editando, setEditando] = useState<ProfGestion | null>(null);
-  const [form, setForm] = useState({ nombre: "", email: "", telefono: "", rol: "profesional", activo: true });
+  const [form, setForm] = useState({ nombre: "", email: "", telefono: "", cargo: "", rol: "profesional", activo: true });
 
   const [asignando, setAsignando] = useState<ProfGestion | null>(null);
   const [selServicios, setSelServicios] = useState<Set<string>>(new Set());
@@ -81,6 +82,7 @@ export function Profesionales() {
       nombre: p.nombre,
       email: p.email,
       telefono: p.telefono ?? "",
+      cargo: p.cargo ?? "",
       rol: p.rol,
       activo: p.activo,
     });
@@ -99,6 +101,7 @@ export function Profesionales() {
           nombre: form.nombre,
           email: form.email,
           telefono: form.telefono || null,
+          cargo: form.cargo || null,
           rol: form.rol,
           activo: form.activo,
         },
@@ -232,6 +235,7 @@ export function Profesionales() {
                     {p.nombre} {p.yo && <span className="text-xs text-zinc-500">(tú)</span>}
                   </p>
                   <p className="text-xs text-zinc-400">{p.email}</p>
+                  {p.cargo && <p className="text-xs font-medium text-violet-300">{p.cargo}</p>}
                 </div>
               </div>
               <span
@@ -306,6 +310,7 @@ export function Profesionales() {
             <Campo label="Nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
             <Campo label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <Campo label="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
+            <Campo label="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
             <div>
               <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-violet-300/80">Rol</span>
               <select

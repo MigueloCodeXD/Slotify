@@ -8,7 +8,7 @@ const schema = z.object({
   nombre: z.string().min(2).max(120).optional(),
   telefono: z.string().max(30).nullable().optional(),
   cedula: z.string().max(30).nullable().optional(),
-  foto_url: z.string().max(500).nullable().optional(),
+  cargo: z.string().max(100).nullable().optional(),
 });
 
 export async function actualizarPerfilRequest(req: Request): Promise<Response> {
@@ -34,7 +34,7 @@ export async function actualizarPerfilRequest(req: Request): Promise<Response> {
   if (d.nombre !== undefined) campos.nombre = d.nombre;
   if (d.telefono !== undefined) campos.telefono = d.telefono;
   if (d.cedula !== undefined) campos.cedula = d.cedula;
-  if (d.foto_url !== undefined) campos.foto_url = d.foto_url;
+  if (d.cargo !== undefined) campos.cargo = d.cargo;
   if (Object.keys(campos).length === 0) return json({ ok: true });
 
   const { error } = await admin.from("profesionales").update(campos).eq("id", prof.id);

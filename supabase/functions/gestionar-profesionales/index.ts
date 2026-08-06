@@ -11,6 +11,7 @@ const schema = z.object({
   nombre: z.string().min(2).max(120).optional(),
   email: z.string().email().max(255).optional(),
   telefono: z.string().max(30).nullable().optional(),
+  cargo: z.string().max(100).nullable().optional(),
   rol: z.enum(["admin", "profesional"]).optional(),
   activo: z.boolean().optional(),
   servicio_ids: z.array(z.string().uuid()).optional(),
@@ -55,6 +56,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
           nombre: p.nombre,
           email: p.email,
           telefono: p.telefono,
+          cargo: p.cargo,
           rol: p.rol,
           activo: p.activo,
           vinculado: Boolean(p.user_id),
@@ -74,6 +76,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
       const campos: Record<string, unknown> = {};
       if (d.nombre !== undefined) campos.nombre = d.nombre;
       if (d.telefono !== undefined) campos.telefono = d.telefono;
+      if (d.cargo !== undefined) campos.cargo = d.cargo;
       if (d.email !== undefined) {
         const email = d.email.toLowerCase();
         if (email !== prof.email) {

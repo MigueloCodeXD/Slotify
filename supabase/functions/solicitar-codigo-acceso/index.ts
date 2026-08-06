@@ -3,10 +3,11 @@ import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
+import { getClientIp } from "../_shared/ip.ts";
 
 const schema = z.object({ email: z.string().email().max(255) });
 
-const GEN = { max: 3, ventanaMs: 10 * 60 * 1000, expiraMs: 15 * 60 * 1000 };
+const GEN = { max: 3, ventanaMs: 10 * 60 * 1000, expiraMs: 15 * 60 * 1000, maxPorIp: 10 };
 
 export async function solicitarCodigoRequest(req: Request): Promise<Response> {
   const cors = handleCors(req);
@@ -22,17 +23,32 @@ export async function solicitarCodigoRequest(req: Request): Promise<Response> {
   if (!parsed.success) return json({ error: "Email inválido" }, 400);
 
   const email = parsed.data.email.toLowerCase();
+  const ip = getClientIp(req);
+  const desde = new Date(Date.now() - GEN.ventanaMs).toISOString();
 
-  // Rate limit: máx 3 códigos por email en 10 min
+  // Rate limit por IP: máx N solicitudes en 10 min
+  const { count: porIp } = await admin
+    .from("intentos_codigo")
+    .select("id", { count: "exact", head: true })
+    .eq("ip", ip)
+    .eq("tipo", "solicitar")
+    .gte("created_at", desde);
+  if ((porIp ?? 0) >= GEN.maxPorIp) {
+    return json({ error: "Demasiadas solicitudes. Intenta más tarde." }, 429);
+  }
+
+  // Rate limit por email: máx 3 códigos por email en 10 min
   const { count } = await admin
     .from("codigos_acceso")
     .select("id", { count: "exact", head: true })
     .eq("email", email)
-    .gte("created_at", new Date(Date.now() - GEN.ventanaMs).toISOString());
+    .gte("created_at", desde);
   if ((count ?? 0) >= GEN.max) {
     // Respuesta genérica para no filtrar nada
     return json({ ok: true, mensaje: "Si el correo existe, recibirás un código." });
   }
+
+  await admin.from("intentos_codigo").insert({ email, ip, tipo: "solicitar" });
 
   const codigo = String(Math.floor(100000 + Math.random() * 900000));
 

@@ -45,7 +45,7 @@ export async function dashboardRequest(req: Request): Promise<Response> {
 
   const proximaVentana = `["${new Date(hoyInicioMs).toISOString()}","${new Date(hoyInicioMs + 8 * DIA_MS).toISOString()}")`;
 
-  const base = "id, rango_tiempo, estado, servicio:servicios(id,nombre,precio,duracion_min), cliente:clientes(nombre,email)";
+  const base = "id, rango_tiempo, estado, precio_servicio, servicio:servicios(id,nombre,precio,duracion_min), cliente:clientes(nombre,email)";
 
   const [hoyRes, proxRes, mesRes, bloqueosHoy] = await Promise.all([
     admin
@@ -94,7 +94,9 @@ export async function dashboardRequest(req: Request): Promise<Response> {
     const e = (c.estado as string) || "confirmada";
     if (e in cuenta) cuenta[e as keyof typeof cuenta]++;
     if (e === "confirmada" || e === "completada") {
-      ingresos += Number((c.servicio as unknown as { precio?: number } | null)?.precio ?? 0);
+      const precioSnapshot = Number(c.precio_servicio ?? 0);
+      const precioActual = Number((c.servicio as unknown as { precio?: number } | null)?.precio ?? 0);
+      ingresos += precioSnapshot || precioActual;
     }
   }
 

@@ -65,7 +65,7 @@ export async function createCitaRequest(req: Request): Promise<Response> {
 
   const { data: servicio } = await admin
     .from("servicios")
-    .select("id, nombre, duracion_min, buffer_min")
+    .select("id, nombre, duracion_min, buffer_min, precio")
     .eq("id", d.servicio_id)
     .single();
   if (!servicio) return json({ error: "Servicio no disponible" }, 400);
@@ -127,6 +127,8 @@ export async function createCitaRequest(req: Request): Promise<Response> {
       profesional_id: profesionalId,
       servicio_id: servicio.id,
       rango_tiempo: rangeStr(startMs, endMs + bufferMs),
+      precio_servicio: servicio.precio,
+      duracion_min_servicio: servicio.duracion_min,
       notas: d.notas ?? null,
     })
     .select("*")

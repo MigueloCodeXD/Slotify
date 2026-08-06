@@ -75,7 +75,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
 
   const { data: servicio } = await admin
     .from("servicios")
-    .select("id, nombre, duracion_min, buffer_min, activo")
+    .select("id, nombre, duracion_min, buffer_min, activo, precio")
     .eq("id", d.servicio_id)
     .single();
   if (!servicio || !servicio.activo) return json({ error: "Servicio no disponible" }, 400);
@@ -116,6 +116,8 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
       servicio_id: servicio.id,
       rango_tiempo: rangeStr(startMs, endMs + bufferMs),
       estado: "pendiente",
+      precio_servicio: servicio.precio,
+      duracion_min_servicio: servicio.duracion_min,
       notas: d.notas ?? null,
       confirmacion_pendiente: true,
       confirmacion_expira_at: new Date(Date.now() + HORAS_CONFIRMAR * 3_600_000).toISOString(),

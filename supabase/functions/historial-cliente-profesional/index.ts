@@ -51,7 +51,7 @@ export async function historialClienteRequest(req: Request): Promise<Response> {
 
   const { data: citas, error } = await admin
     .from("citas")
-    .select("id, rango_tiempo, estado, servicio:servicios(id,nombre,precio,duracion_min)")
+    .select("id, rango_tiempo, estado, precio_servicio, duracion_min_servicio, servicio:servicios(id,nombre,precio,duracion_min)")
     .eq("profesional_id", target.id)
     .eq("cliente_id", cliente.id)
     .order("rango_tiempo", { ascending: false })

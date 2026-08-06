@@ -33,6 +33,7 @@ interface CitaDash {
   estado: string;
   start: string;
   end: string;
+  precio_servicio?: number | null;
   servicio: { id: string; nombre: string; precio: number; duracion_min: number };
   cliente: { nombre: string; email: string };
   motivo?: string | null;
@@ -244,7 +245,10 @@ export function Dashboard() {
                     {fmtHora(c.start)} · {c.cliente.nombre}
                   </p>
                   <p className="text-xs text-zinc-400">
-                    {c.servicio.nombre} · <span className="font-mono">{Number(c.servicio.precio).toFixed(2)}</span>
+                    {c.servicio.nombre} ·{" "}
+                    <span className="font-mono">
+                      {Number(c.precio_servicio ?? c.servicio.precio).toFixed(2)}
+                    </span>
                   </p>
                 </li>
               ))}

@@ -47,6 +47,11 @@ function fmtHora(iso: string): string {
   }).format(new Date(iso));
 }
 
+function fmtMoneda(v: number | null | undefined): string {
+  const n = Number(v ?? 0);
+  return "$" + (Number.isFinite(n) ? n : 0).toFixed(2);
+}
+
 function fmtInputTime(iso: string): string {
   return new Intl.DateTimeFormat("en-GB", {
     hour: "2-digit",
@@ -467,6 +472,7 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                     </p>
                     <p className="truncate text-xs text-zinc-400">
                       {c.servicio?.nombre} {c.servicio?.duracion_min ? `· ${c.servicio.duracion_min} min` : ""}
+                      {c.precio_servicio != null ? ` · ${fmtMoneda(c.precio_servicio)}` : ""}
                     </p>
                   </div>
                   <span
@@ -894,7 +900,10 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                           <p className="truncate font-semibold text-zinc-100">
                             <span className="font-mono text-violet-300">{fmtHora(c.start)}</span> · {c.cliente?.nombre}
                           </p>
-                          <p className="truncate text-xs text-zinc-400">{c.servicio?.nombre}</p>
+                          <p className="truncate text-xs text-zinc-400">
+                            {c.servicio?.nombre}
+                            {c.precio_servicio != null ? ` · ${fmtMoneda(c.precio_servicio)}` : ""}
+                          </p>
                         </div>
                         <span
                           className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase ${TONO_ESTADO[c.estado] ?? TONO_ESTADO.confirmada}`}
@@ -959,6 +968,9 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
               <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-zinc-300">
                 {cita.cliente?.email && <p>📧 {cita.cliente.email}</p>}
                 {cita.cliente?.telefono && <p>📱 {cita.cliente.telefono}</p>}
+                {cita.estado !== "cancelada" && (
+                  <p>💲 Precio: <span className="font-mono font-semibold text-zinc-100">{fmtMoneda(cita.precio_servicio)}</span></p>
+                )}
                 <button
                   onClick={() => abrirHistorial(cita.cliente!.id)}
                   className="mt-1.5 font-semibold text-violet-300 hover:text-violet-200 hover:underline"

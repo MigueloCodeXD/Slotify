@@ -10,3 +10,6 @@ dist/
 .DS_Store
 *.log
 supabase/.temp/
+
+# Deno lock (artefacto local de verificación)
+deno.lock

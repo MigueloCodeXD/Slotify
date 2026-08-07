@@ -64,6 +64,7 @@ export function CitasList({
       setContacto(null);
     } catch (e) {
       setErrorContacto((e as Error).message);
+      setContacto((c) => (c ? { ...c, enviando: false } : c));
     } finally {
       onEnviado?.();
     }

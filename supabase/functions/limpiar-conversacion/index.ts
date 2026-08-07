@@ -1,48 +1,49 @@
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { z } from "npm:zod@3.25.76";
+import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { admin, json } from "../_shared/db.ts";
+import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
+import { registrar } from "../_shared/logging.ts";
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseService = createClient(
-  supabaseUrl,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+const schema = z.object({
+  cita_id: z.string().uuid(),
+});
 
-const cors = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+export async function limpiarConversacionRequest(req: Request): Promise<Response> {
+  const cors = handleCors(req);
+  if (cors) return cors;
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  const userId = await getUserFromRequest(req);
+  if (!userId) return json({ error: "No autorizado." }, 401);
+  const { data: prof } = await getProfesionalByUser(userId);
+  if (!prof) return json({ error: "No autorizado." }, 401);
+
+  const body = await req.json().catch(() => null);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  const { cita_id } = parsed.data;
+
+  const { data: cita } = await admin.from("citas").select("profesional_id").eq("id", cita_id).single();
+  if (!cita) return json({ error: "Cita no encontrada." }, 404);
+  if (prof.rol !== "admin" && cita.profesional_id !== prof.id) {
+    return json({ error: "No puedes limpiar esta conversación." }, 403);
+  }
+
+  const { error } = await admin.from("avisos_cita").delete().eq("cita_id", cita_id);
+  if (error) return json({ error: "No se pudo limpiar la conversación." }, 500);
+
+  registrar("limpiar-conversacion", "info", "conversacion_limpiada", { cita_id, profesional_id: prof.id });
+
+  return json({ ok: true });
+}
+
+serve(async (req) => {
   try {
-    const auth = req.headers.get("Authorization");
-    const jwt = auth?.replace("Bearer ", "") ?? "";
-    const supaCli = createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: `Bearer ${jwt}` } }, auth: { autoRefreshToken: false, persistSession: false } }
-    );
-    const { data: { user } } = await supaCli.auth.getUser(jwt);
-    if (!user) return new Response(JSON.stringify({ error: "sin sesion" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
-
-    const perfil = (await supaCli.from("profesionales").select("id, admin").eq("user_id", user.id).single()).data;
-    if (!perfil) return new Response(JSON.stringify({ error: "no eres profesional" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
-
-    const body = await req.json();
-    const citaId = body?.cita_id;
-    if (!citaId) return new Response(JSON.stringify({ error: "falta cita_id" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-
-    const { data: cita, error: eCita } = await supaCli.from("citas").select("profesional_id").eq("id", citaId).single();
-    if (eCita || !cita) throw new Error("cita no encontrada");
-    if (!perfil.admin && cita.profesional_id !== perfil.id)
-      return new Response(JSON.stringify({ error: "no es tu cita" }), { status: 403, headers: { ...cors, "Content-Type": "application/json" } });
-
-    const { error } = await supaCli.from("avisos_cita").delete().eq("cita_id", citaId);
-    if (error) throw error;
-
-    return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...cors, "Content-Type": "application/json" } });
+    const res = await limpiarConversacionRequest(req);
+    const body = await res.text();
+    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    const msg = (err as Error).message ?? "error";
-    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+    console.error(err);
+    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
   }
 });

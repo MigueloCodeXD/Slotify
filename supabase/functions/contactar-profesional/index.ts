@@ -103,7 +103,9 @@ export async function contactarRequest(req: Request): Promise<Response> {
 
 serve(async (req) => {
   try {
-    return await contactarRequest(req);
+    const res = await contactarRequest(req);
+    const body = await res.text();
+    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });

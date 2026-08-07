@@ -238,7 +238,12 @@ export default function MisCitas() {
                 </form>
               </Tarjeta>
             )}
-            <CitasList citas={citas} avisos={avisos} sesion={sesion} />
+            <CitasList
+              citas={citas}
+              avisos={avisos}
+              sesion={sesion}
+              onEnviado={() => cargar(sesion)}
+            />
             <div className="mt-6 text-center">
               <button
                 onClick={cambiarCorreo}

@@ -7,7 +7,6 @@ import { Navbar } from "@/components/Navbar";
 import { configPublica, profesionalesPublicos, serviciosPublicos } from "@/lib/supabaseClient";
 import { llamarEdge } from "@/lib/api";
 import { googleCalendarLink, icsLink } from "@/lib/calendarLink";
-import { diasProximos, fmtPill } from "@/lib/fechas";
 import { TZ, actualizarTZ } from "@/lib/zonaHoraria";
 import { useToast } from "@/components/Toast";
 import type { Config, ProfesionalPublico, ServicioPublico } from "@/types";
@@ -36,6 +35,16 @@ function fmtDia(iso: string): string {
     timeZone: TZ,
   }).format(new Date(iso));
 }
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function isoDia(y: number, m: number, d: number): string {
+  return `${y}-${pad2(m + 1)}-${pad2(d)}`;
+}
+
+const DIAS_SEMANA = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"];
 
 export function Agendar() {
   const router = useRouter();
@@ -96,11 +105,39 @@ export function Agendar() {
     return profesionales.filter((p) => servicio.profesionales_ids.includes(p.id));
   }, [servicio, profesionales]);
 
-  const dias = useMemo(() => diasProximos(7, TZ), []);
+  const [mes, setMes] = useState(() => {
+    const h = new Date();
+    return new Date(h.getFullYear(), h.getMonth(), 1);
+  });
+
+  const hoyInicio = useMemo(() => {
+    const h = new Date();
+    return new Date(h.getFullYear(), h.getMonth(), h.getDate()).getTime();
+  }, []);
+
+  const celdas = useMemo(() => {
+    const y = mes.getFullYear();
+    const m = mes.getMonth();
+    const nDias = new Date(y, m + 1, 0).getDate();
+    const offset = (new Date(y, m, 1).getDay() + 6) % 7;
+    const dias = new Array<{ iso: string; num: number; pasado: boolean }>();
+    for (let i = 0; i < offset; i++) dias.push({ iso: "", num: 0, pasado: false });
+    for (let d = 1; d <= nDias; d++) {
+      const iso = isoDia(y, m, d);
+      dias.push({ iso, num: d, pasado: new Date(y, m, d).getTime() < hoyInicio });
+    }
+    return dias;
+  }, [mes, hoyInicio]);
+
+  const etiquetaMes = new Intl.DateTimeFormat("es", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(mes.getFullYear(), mes.getMonth(), 1));
 
   async function cargarSlots(dia: string) {
     if (!servicio) return;
     setCargandoSlots(true);
+    setSlot(null);
     try {
       const res = await llamarEdge<{ slots: Slot[]; ocupados: Slot[] }>("consultar-disponibilidad", {
         servicio_id: servicio.id,
@@ -283,20 +320,51 @@ export function Agendar() {
             <h2 className="mb-3 mt-4 text-lg font-bold text-white">
               Elige el día
             </h2>
-            <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-              {dias.map((d) => (
+            <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+              <div className="mb-2 flex items-center justify-between">
                 <button
-                  key={d}
-                  onClick={() => cargarSlots(d)}
-                  className={`shrink-0 rounded-xl border px-4 py-2 text-center text-xs font-semibold transition ${
-                    fecha === d
-                      ? "border-white bg-white text-violet-300"
-                      : "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                  }`}
+                  onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white transition hover:bg-white/10"
+                  aria-label="Mes anterior"
                 >
-                  {fmtPill(d)}
+                  ‹
                 </button>
-              ))}
+                <span className="text-sm font-bold capitalize text-white">{etiquetaMes}</span>
+                <button
+                  onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white transition hover:bg-white/10"
+                  aria-label="Mes siguiente"
+                >
+                  ›
+                </button>
+              </div>
+              <div className="grid grid-cols-7 gap-1 text-center">
+                {DIAS_SEMANA.map((d) => (
+                  <span key={d} className="pb-1 text-[11px] font-semibold uppercase text-zinc-500">
+                    {d}
+                  </span>
+                ))}
+                {celdas.map((c, i) =>
+                  c.iso === "" ? (
+                    <span key={i} />
+                  ) : (
+                    <button
+                      key={c.iso}
+                      disabled={c.pasado}
+                      onClick={() => cargarSlots(c.iso)}
+                      className={`aspect-square rounded-lg text-sm font-semibold transition ${
+                        fecha === c.iso
+                          ? "bg-white text-violet-300"
+                          : c.pasado
+                            ? "cursor-not-allowed bg-white/[0.02] text-white/25"
+                            : "bg-white/10 text-white hover:bg-white/20"
+                      }`}
+                    >
+                      {c.num}
+                    </button>
+                  )
+                )}
+              </div>
             </div>
 
             {cargandoSlots && (

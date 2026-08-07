@@ -40,10 +40,12 @@ export function CitasList({
   citas,
   avisos,
   sesion,
+  onEnviado,
 }: {
   citas: CitaCliente[];
   avisos: Record<string, Aviso[]>;
   sesion: string;
+  onEnviado?: () => void;
 }) {
   const [contacto, setContacto] = useState<{ citaId: string; mensaje: string; enviando: boolean } | null>(null);
   const [errorContacto, setErrorContacto] = useState<string | null>(null);
@@ -62,7 +64,8 @@ export function CitasList({
       setContacto(null);
     } catch (e) {
       setErrorContacto((e as Error).message);
-      setContacto((c) => (c ? { ...c, enviando: false } : c));
+    } finally {
+      onEnviado?.();
     }
   }
 

@@ -20,6 +20,8 @@ ${soloInfo ? "MODO SOLO INFORMACIÓN: SOLO consultas y respuestas. NO crees bloq
 REGLAS:
 - NUNCA inventes datos. Usa siempre las funciones disponibles.
 - El profesional autenticado es quien pregunta; actúa solo sobre sus citas.
+- Puedes registrar pagos (con registrar_pago), ver los mensajes del cliente de una cita (con consultar_mensajes) y enviar avisos al cliente (con enviar_aviso).
+- Los cobros reflejan el estado de pago de cada cita (pendiente, parcial o pagado) y el anticipo; responde con esos datos cuando pregunten por dinero cobrado.
 - El profesional puede configurar su propia disponibilidad semanal y los servicios que ofrece. Solo el admin puede modificar el catálogo, invitar profesionales, gestionar el equipo (ver/editar/desactivar/eliminar profesionales, asignarles servicios) y configurar el negocio.
 - NUNCA preguntes al profesional por la fecha u hora actual: ya la conoces.
 - Para fechas usa formato AAAA-MM-DD; para horas, ISO 8601.
@@ -282,8 +284,30 @@ const herramientas: ToolDef[] = [
   },
   {
     name: "resumen_negocio",
-    description: "Resumen del negocio/profesional: citas de hoy, próximas citas, bloqueos de hoy y estadísticas e ingresos del mes.",
+    description: "Resumen del negocio/profesional: citas de hoy, próximas citas, bloqueos de hoy, estadísticas e ingresos del mes y montos cobrado/pendiente por cobrar según el estado de pago.",
     parameters: { type: "object", properties: {} },
+  },
+  {
+    name: "consultar_mensajes",
+    description: "Consulta los mensajes de una cita (si cita_id va vacío, lista todos los hilos de conversación del profesional). Devuelve el hilo de avisos con su emisor (cliente o profesional) para leer la conversación con un cliente.",
+    parameters: {
+      type: "object",
+      properties: { cita_id: { type: "string", description: "ID de la cita (opcional)" } },
+    },
+  },
+  {
+    name: "registrar_pago",
+    description: "Registra un pago de una cita del profesional. El monto no puede superar el valor pendiente (precio menos abonos acumulados); si lo cubre, la cita queda 'pagado', si no 'parcial'. Método: efectivo, tarjeta, transferencia u otro.",
+    parameters: {
+      type: "object",
+      properties: {
+        cita_id: { type: "string" },
+        monto: { type: "number", description: "Monto a registrar, mayor a 0 y sin superar el pendiente" },
+        metodo: { type: "string", enum: ["efectivo", "tarjeta", "transferencia", "otro"] },
+        otro: { type: "string", description: "Texto si el método es 'otro'" },
+      },
+      required: ["cita_id", "monto", "metodo"],
+    },
   },
 ];
 
@@ -340,6 +364,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
             "crear_cita_profesional",
             "reprogramar_cita_profesional",
             "cambiar_estado_cita",
+            "registrar_pago",
             "guardar_disponibilidad_semanal",
             "asignar_mis_servicios",
             "configurar_negocio",
@@ -686,6 +711,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
         profesional_id: prof.id,
         mensaje: String(args.mensaje ?? "").slice(0, 500),
         es_publico_cliente: publico,
+        emisor: "profesional",
       });
       if (error) return { error: "No se pudo enviar el aviso." };
       if (publico) {
@@ -1017,6 +1043,78 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       }
       return { ok: true };
     },
+    consultar_mensajes: async (args) => {
+      const citaId = args && args.cita_id ? String(args.cita_id) : null;
+      let q = admin.from("avisos_cita").select(
+        "id, cita_id, profesional_id, mensaje, emisor, created_at, cita:citas(id, estado, rango_tiempo, servicio:servicios(nombre), cliente:clientes(nombre))"
+      );
+      if (prof.rol !== "admin") q = q.eq("profesional_id", prof.id);
+      if (citaId) q = q.eq("cita_id", citaId);
+      const { data, error } = await q.order("created_at", { ascending: true });
+      if (error) return { error: "No se pudieron cargar los mensajes." };
+      const porCita = new Map<string, { cita: unknown; mensajes: unknown[] }>();
+      for (const av of (data ?? []) as {
+        cita_id: string;
+        id: string;
+        mensaje: string;
+        emisor: string;
+        created_at: string;
+        cita: unknown;
+      }[]) {
+        let c = porCita.get(av.cita_id);
+        if (!c) {
+          c = { cita: av.cita, mensajes: [] };
+          porCita.set(av.cita_id, c);
+        }
+        c.mensajes.push({ id: av.id, mensaje: av.mensaje, emisor: av.emisor, created_at: av.created_at });
+      }
+      const conversaciones = Array.from(porCita.entries()).map(([citaId_, c]) => ({
+        cita_id: citaId_,
+        cita: c.cita,
+        mensajes: c.mensajes,
+      }));
+      return { conversaciones };
+    },
+    registrar_pago: async (args) => {
+      if (soloInfo) return { error: "Modo información: no se permiten acciones." };
+      const schema = z.object({
+        cita_id: z.string().uuid(),
+        monto: z.number().min(0.01),
+        metodo: z.enum(["efectivo", "tarjeta", "transferencia", "otro"]),
+        otro: z.string().max(40).optional().nullable(),
+      });
+      const parsed = schema.safeParse(args);
+      if (!parsed.success) return { error: "Datos de pago inválidos (monto, método y cita_id)." };
+      const d = parsed.data;
+      const { data: cita, error: eCita } = await admin
+        .from("citas")
+        .select("id, anticipo, profesional_id, estado_pago, precio_servicio, servicio:servicios(precio)")
+        .eq("id", d.cita_id)
+        .single();
+      if (eCita || !cita) return { error: "Cita no encontrada." };
+      if (cita.profesional_id !== prof.id && prof.rol !== "admin") {
+        return { error: "No puedes registrar pagos de esa cita." };
+      }
+      if (cita.estado_pago === "pagado") return { error: "La cita ya está pagada." };
+      const srv = Array.isArray(cita.servicio) ? cita.servicio[0] : cita.servicio;
+      const precio = Number(cita.precio_servicio ?? (srv as { precio?: number } | undefined)?.precio ?? 0);
+      const anticipoAnterior = Number(cita.anticipo ?? 0);
+      const pendiente = Math.max(0, precio - anticipoAnterior);
+      if (d.monto > pendiente) return { error: `El monto no puede superar el pendiente ($${pendiente.toFixed(2)}).` };
+      const nuevoAnticipo = anticipoAnterior + d.monto;
+      const estado = nuevoAnticipo >= precio ? "pagado" : "parcial";
+      const metodoFinal = d.metodo === "otro" ? (d.otro ?? "otro").trim() : d.metodo;
+      const { error: ePago } = await admin.from("pagos").insert({
+        cita_id: cita.id,
+        monto: d.monto,
+        metodo: metodoFinal,
+        usuario: prof.nombre,
+      });
+      if (ePago) return { error: "No se pudo registrar el pago." };
+      const { error: eUp } = await admin.from("citas").update({ anticipo: nuevoAnticipo, estado_pago: estado }).eq("id", cita.id);
+      if (eUp) return { error: "No se pudo actualizar la cita." };
+      return { ok: true, anticipo: nuevoAnticipo, estado_pago: estado };
+    },
     resumen_negocio: async () => {
       const tz = await getTZ();
       const DIA_MS = 24 * 3600 * 1000;
@@ -1033,7 +1131,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       const mesFinMs = dayStartUtc(Date.parse(`${proxMes}-01T12:00:00Z`), tz);
       const mesVentana = `["${new Date(mesInicioMs).toISOString()}","${new Date(mesFinMs).toISOString()}")`;
       const proximaVentana = `["${new Date(hoyInicioMs).toISOString()}","${new Date(diaFinMs + 8 * DIA_MS).toISOString()}")`;
-      const base = "id, rango_tiempo, estado, servicio:servicios(id,nombre,precio,duracion_min), cliente:clientes(nombre,email)";
+      const base = "id, rango_tiempo, estado, estado_pago, anticipo, precio_servicio, servicio:servicios(id,nombre,precio,duracion_min), cliente:clientes(nombre,email)";
       const [hoyRes, proxRes, mesRes, bloqueosRes] = await Promise.all([
         admin.from("citas").select(base).eq("profesional_id", prof.id).filter("rango_tiempo", "ov", hoyVentana),
         admin
@@ -1064,18 +1162,32 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       }));
       const cuenta = { confirmada: 0, pendiente: 0, completada: 0, cancelada: 0, no_show: 0 };
       let ingresos = 0;
-      for (const c of (mesRes.data ?? []) as { estado: string; servicio?: unknown }[]) {
+      let cobrado = 0;
+      let pendiente_cobrar = 0;
+      for (const c of (mesRes.data ?? []) as {
+        estado: string;
+        estado_pago?: string | null;
+        anticipo?: number | null;
+        servicio?: unknown;
+      }[]) {
         const e = c.estado as keyof typeof cuenta;
         if (e in cuenta) cuenta[e]++;
         if (e === "confirmada" || e === "completada") {
           ingresos += Number(((c.servicio as unknown as { precio?: number } | null)?.precio) ?? 0);
         }
+        if (e === "cancelada") continue;
+        const precio = Number((c.servicio as unknown as { precio?: number } | null)?.precio ?? 0);
+        const ante = Number(c.anticipo ?? 0);
+        const ep = (c.estado_pago as string | null | undefined) ?? "pendiente";
+        if (ep === "pagado") cobrado += precio;
+        else if (ep === "parcial") cobrado += ante;
+        else pendiente_cobrar += Math.max(0, precio - ante);
       }
       return {
         hoy: { fecha: hoy, citas: citasHoy, total_confirmadas: citasHoy.filter((c) => c.estado === "confirmada").length, canceladas: canceladasHoy },
         proximas,
         bloqueos_hoy,
-        mes: { mes, cuenta, ingresos, total: (mesRes.data ?? []).length },
+        mes: { mes, cuenta, ingresos, cobrado, pendiente_cobrar, total: (mesRes.data ?? []).length },
         timezone: tz,
       };
     },

@@ -61,6 +61,7 @@ export function MensajesPanel() {
   const [texto, setTexto] = useState("");
   const [cargando, setCargando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [limpiando, setLimpiando] = useState(false);
 
   async function cargar() {
     setCargando(true);
@@ -92,6 +93,22 @@ export function MensajesPanel() {
       notificar((e as Error).message, "error");
     } finally {
       setEnviando(false);
+    }
+  }
+
+  async function limpiarConversacion() {
+    if (!activaId || limpiando) return;
+    setLimpiando(true);
+    try {
+      const token = (await getTokenSesion()) ?? undefined;
+      await llamarEdge("limpiar-conversacion", { cita_id: activaId }, token);
+      notificar("Conversación borrada.", "exito");
+      setActivaId(null);
+      await cargar();
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    } finally {
+      setLimpiando(false);
     }
   }
 
@@ -180,6 +197,13 @@ export function MensajesPanel() {
                 >
                   {ETIQUETAS[activa.cita?.estado ?? ""] ?? activa.cita?.estado}
                 </span>
+                <button
+                  onClick={limpiarConversacion}
+                  disabled={limpiando}
+                  className="rounded-lg border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-rose-300/90 transition hover:border-rose-400/40 hover:text-rose-200 disabled:opacity-50"
+                >
+                  {limpiando ? "Borrando…" : "Limpiar"}
+                </button>
               </div>
               <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                 {activa.mensajes.map((m) => (

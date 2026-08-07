@@ -59,12 +59,15 @@ export async function cancelarProfRequest(req: Request): Promise<Response> {
   if (eUp) return json({ error: "No se pudo cancelar la cita." }, 500);
 
   const rango = parseRango(cita.rango_tiempo as string);
+  const { data: cfgDir } = await admin.from("config").select("direccion").single();
+  const direccion = (cfgDir?.direccion as string | null) ?? "";
   await enviarCorreo("cita_cancelada_cliente", {
     to: cita.cliente.email,
     nombre: cita.cliente.nombre,
     servicio: cita.servicio.nombre,
     profesional: cita.profesional.nombre,
     fecha: rango.start,
+    direccion,
   }).catch(() => {});
 
   return json({ ok: true });

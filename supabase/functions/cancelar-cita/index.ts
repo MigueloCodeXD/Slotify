@@ -51,18 +51,22 @@ export async function cancelarCitaRequest(req: Request): Promise<Response> {
     .eq("id", cita.id);
   if (eUp) return json({ error: "No se pudo cancelar la cita." }, 500);
 
+  const { data: cfgDir } = await admin.from("config").select("direccion").single();
+  const direccion = (cfgDir?.direccion as string | null) ?? "";
   await enviarCorreo("cita_cancelada_cliente", {
     to: cita.cliente.email,
     nombre: cita.cliente.nombre,
     servicio: cita.servicio.nombre,
     profesional: cita.profesional.nombre,
     fecha: new Date(rango.start).toISOString(),
+    direccion,
   }).catch(() => {});
   await enviarCorreo("cita_cancelada_profesional", {
     to: cita.profesional.email,
     cliente: cita.cliente.nombre,
     servicio: cita.servicio.nombre,
     fecha: new Date(rango.start).toISOString(),
+    direccion,
   }).catch(() => {});
 
   return json({ ok: true });

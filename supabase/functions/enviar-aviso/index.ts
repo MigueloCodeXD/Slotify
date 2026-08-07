@@ -52,10 +52,13 @@ export async function enviarAvisoRequest(req: Request): Promise<Response> {
     const cli = (Array.isArray(cita.cliente) ? cita.cliente[0] : cita.cliente) as unknown as
       | { email?: string; nombre?: string }
       | undefined;
+    const { data: cfgDir } = await admin.from("config").select("direccion").single();
+    const direccion = (cfgDir?.direccion as string | null) ?? "";
     await enviarCorreo("aviso_profesional_cliente", {
       to: cli?.email ?? "",
       nombre: cli?.nombre ?? "Cliente",
       mensaje: d.mensaje,
+      direccion,
       link_gestion: `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/mi-cita?token=${cita.token_gestion}`,
     }).catch(() => {});
   }

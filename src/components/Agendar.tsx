@@ -59,6 +59,8 @@ export function Agendar() {
   const [cargandoSlots, setCargandoSlots] = useState(false);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [ocupados, setOcupados] = useState<Slot[]>([]);
+  const [enviando, setEnviando] = useState(false);
+  const [errores, setErrores] = useState<{ nombre?: string; email?: string; telefono?: string }>({});
 
   const [citaFinal, setCitaFinal] = useState<{
     id: string;
@@ -118,6 +120,17 @@ export function Agendar() {
 
   async function confirmar() {
     if (!servicio || !slot) return;
+    if (enviando) return;
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(datos.email.trim());
+    const telefonoOk = datos.telefono.trim() === "" || /^[+\d][\d\s()-]{6,}$/.test(datos.telefono.trim());
+    const nuevosErrores = {
+      nombre: datos.nombre.trim().length < 2 ? "Ingresa tu nombre." : undefined,
+      email: !emailOk ? "Ingresa un email válido." : undefined,
+      telefono: !telefonoOk ? "Ingresa un teléfono válido." : undefined,
+    };
+    setErrores(nuevosErrores);
+    if (nuevosErrores.nombre || nuevosErrores.email || nuevosErrores.telefono) return;
+    setEnviando(true);
     try {
       const res = await llamarEdge<{
         ok: boolean;
@@ -144,6 +157,8 @@ export function Agendar() {
       setPaso("confirmacion");
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -349,24 +364,33 @@ export function Agendar() {
               </div>
               <div className="space-y-4">
                 <Campo
-                  label="Nombre"
-                  placeholder="Tu nombre"
-                  value={datos.nombre}
-                  onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
-                />
-                <Campo
-                  label="Email"
-                  type="email"
-                  placeholder="tucorreo@ejemplo.com"
-                  value={datos.email}
-                  onChange={(e) => setDatos({ ...datos, email: e.target.value })}
-                />
-                <Campo
-                  label="Teléfono (opcional)"
-                  placeholder="+57 300 000 0000"
-                  value={datos.telefono}
-                  onChange={(e) => setDatos({ ...datos, telefono: e.target.value })}
-                />
+                    label="Nombre"
+                    placeholder="Tu nombre"
+                    value={datos.nombre}
+                    onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
+                  />
+                  {errores.nombre && (
+                    <p className="text-sm text-rose-300">{errores.nombre}</p>
+                  )}
+                  <Campo
+                    label="Email"
+                    type="email"
+                    placeholder="tucorreo@ejemplo.com"
+                    value={datos.email}
+                    onChange={(e) => setDatos({ ...datos, email: e.target.value })}
+                  />
+                  {errores.email && (
+                    <p className="text-sm text-rose-300">{errores.email}</p>
+                  )}
+                  <Campo
+                    label="Teléfono (opcional)"
+                    placeholder="+57 300 000 0000"
+                    value={datos.telefono}
+                    onChange={(e) => setDatos({ ...datos, telefono: e.target.value })}
+                  />
+                  {errores.telefono && (
+                    <p className="text-sm text-rose-300">{errores.telefono}</p>
+                  )}
                 <input
                   type="text"
                   value={datos.website}
@@ -380,9 +404,9 @@ export function Agendar() {
                   variante="primario"
                   onClick={confirmar}
                   className="w-full"
-                  disabled={!datos.nombre || !datos.email.includes("@")}
+                  disabled={enviando || !datos.nombre || !datos.email.includes("@")}
                 >
-                  Confirmar cita
+                  {enviando ? "Confirmando…" : "Confirmar cita"}
                 </Boton>
               </div>
             </Tarjeta>

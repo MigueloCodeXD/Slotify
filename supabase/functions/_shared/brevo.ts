@@ -85,6 +85,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
           <tr><td style="padding:4px 0;color:#6b6480">Cliente</td><td style="padding:4px 0;font-weight:bold">{{cliente}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
       `, `Nueva cita agendada · ${negocio}`);
       return { subject, html };
@@ -97,6 +98,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Profesional</td><td style="padding:4px 0;font-weight:bold">{{profesional}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Nueva fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
         <p><a href="{{link_gestion}}" style="display:inline-block;background:#6d28d9;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none">Gestionar mi cita</a></p>
       `, `Cita reprogramada · ${negocio}`);
@@ -109,6 +111,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f6fc;border-radius:12px;padding:16px;margin:16px 0">
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Nueva fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
       `, `Cita reprogramada · ${negocio}`);
       return { subject, html };
@@ -121,6 +124,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Profesional</td><td style="padding:4px 0;font-weight:bold">{{profesional}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
         <p>Si fue un error, puedes agendar una nueva cita cuando quieras.</p>
       `, `Cita cancelada · ${negocio}`);
@@ -133,6 +137,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f6fc;border-radius:12px;padding:16px;margin:16px 0">
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
       `, `Cita cancelada · ${negocio}`);
       return { subject, html };
@@ -145,6 +150,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Profesional</td><td style="padding:4px 0;font-weight:bold">{{profesional}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
         <p>Confirma para reservar tu horario. Si no confirmas antes del vencimiento, la cita se liberará automáticamente.</p>
         <p><a href="{{link_confirmar}}" style="display:inline-block;background:#6d28d9;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none">Confirmar mi cita</a></p>
@@ -176,6 +182,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
       const html = plantilla(`
         <p>Hola <strong>{{nombre}}</strong>, tienes un mensaje sobre tu cita:</p>
         <blockquote style="border-left:4px solid #a855f7;margin:16px 0;padding:12px 16px;background:#f8f6fc">{{mensaje}}</blockquote>
+        <p style="color:#6b6480;font-size:13px">📍 {{direccion}}</p>
         <p><a href="{{link_gestion}}" style="display:inline-block;background:#6d28d9;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none">Ver mi cita</a></p>
       `, `Mensaje sobre tu cita · ${negocio}`);
       return { subject, html };
@@ -196,6 +203,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Profesional</td><td style="padding:4px 0;font-weight:bold">{{profesional}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
         <p>Si no puedes asistir, avísanos desde el siguiente enlace:</p>
         <p><a href="{{link_gestion}}" style="display:inline-block;background:#6d28d9;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none">Gestionar mi cita</a></p>
@@ -210,6 +218,7 @@ export function construirEmail(tipo: EmailTipo, datos: DatosEmail): {
           <tr><td style="padding:4px 0;color:#6b6480">Cliente</td><td style="padding:4px 0;font-weight:bold">{{cliente}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Servicio</td><td style="padding:4px 0;font-weight:bold">{{servicio}}</td></tr>
           <tr><td style="padding:4px 0;color:#6b6480">Fecha</td><td style="padding:4px 0;font-weight:bold">{{fecha}}</td></tr>
+          <tr><td style="padding:4px 0;color:#6b6480">Dirección</td><td style="padding:4px 0;font-weight:bold">{{direccion}}</td></tr>
         </table>
       `, 'Recordatorio de cita · ' + negocio);
       return { subject, html };

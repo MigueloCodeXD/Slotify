@@ -72,6 +72,8 @@ export async function reprogramarProfRequest(req: Request): Promise<Response> {
   if (eUp) return json({ error: "No se pudo reprogramar la cita." }, 500);
 
   const link = `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/mi-cita?token=${cita.token_gestion}`;
+  const { data: cfgDir } = await admin.from("config").select("direccion").single();
+  const direccion = (cfgDir?.direccion as string | null) ?? "";
   await enviarCorreo("cita_modificada_cliente", {
     to: cita.cliente.email,
     nombre: cita.cliente.nombre,
@@ -79,12 +81,14 @@ export async function reprogramarProfRequest(req: Request): Promise<Response> {
     profesional: cita.profesional.nombre,
     fecha: new Date(nuevoStart).toISOString(),
     link_gestion: link,
+    direccion,
   }).catch(() => {});
   await enviarCorreo("cita_modificada_profesional", {
     to: cita.profesional.email,
     cliente: cita.cliente.nombre,
     servicio: cita.servicio.nombre,
     fecha: new Date(nuevoStart).toISOString(),
+    direccion,
   }).catch(() => {});
 
   return json({ ok: true });

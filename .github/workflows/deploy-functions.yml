@@ -1,0 +1,48 @@
+name: Deploy Edge Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-deploy
+  cancel-in-progress: false
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+  PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+jobs:
+  deploy:
+    name: Deploy functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Deploy all Edge Functions
+        run: |
+          # Funciones que se invocan SIN JWT (health, cron/seguridad) -> no-verify-jwt
+          # TODO(ci): ajustar esta lista al estado real capturado en produccion.
+          NO_VERIFY="health"
+
+          failed=0
+          for fn in $(ls supabase/functions | grep -v '^_shared$'); do
+            if echo " $NO_VERIFY " | grep -q " $fn "; then
+              npx supabase@latest functions deploy "$fn" \
+                --project-id "$PROJECT_ID" --use-api --no-verify-jwt || failed=1
+            else
+              npx supabase@latest functions deploy "$fn" \
+                --project-id "$PROJECT_ID" --use-api || failed=1
+            fi
+          done
+          exit $failed

@@ -55,6 +55,7 @@ export function MiCita() {
   const [avisos, setAvisos] = useState<Record<string, Aviso[]>>({});
   const [cargando, setCargando] = useState(true);
   const [cambio, setCambio] = useState<"cancelar" | "reprogramar" | null>(null);
+  const [enviando, setEnviando] = useState(false);
   const [slot, setSlot] = useState<{ start: string; end: string } | null>(null);
   const [slots, setSlots] = useState<{ start: string; end: string }[]>([]);
   const [cargandoSlots, setCargandoSlots] = useState(false);
@@ -107,12 +108,16 @@ export function MiCita() {
 
   async function cancelar() {
     if (!cita) return;
+    if (enviando) return;
+    setEnviando(true);
     try {
       await llamarEdge("cancelar-cita", { token_gestion: token });
       setCambio(null);
       await cargar();
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -283,8 +288,8 @@ export function MiCita() {
                 ¿Seguro que quieres cancelar esta cita?
               </p>
               <div className="mt-3 flex gap-3">
-                <Boton variante="primario" onClick={cancelar} className="bg-rose-600 hover:bg-rose-500">
-                  Sí, cancelar
+                <Boton variante="primario" onClick={cancelar} disabled={enviando} className="bg-rose-600 hover:bg-rose-500">
+                  {enviando ? "Cancelando…" : "Sí, cancelar"}
                 </Boton>
                 <Boton variante="claro" onClick={() => setCambio(null)}>
                   Volver

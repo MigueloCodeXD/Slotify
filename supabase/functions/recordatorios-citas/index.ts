@@ -38,6 +38,8 @@ export async function recordatoriosRequest(req: Request): Promise<Response> {
     .filter("rango_tiempo", "ov", ventana);
 
   let recordados = 0;
+  const { data: cfgDir } = await admin.from("config").select("direccion").single();
+  const direccion = (cfgDir?.direccion as string | null) ?? "";
   for (const c of citas ?? []) {
     const rango = parseRango(c.rango_tiempo as string);
     if (rango.start < ahora) continue;
@@ -57,6 +59,7 @@ export async function recordatoriosRequest(req: Request): Promise<Response> {
       profesional: profesional.nombre,
       fecha: new Date(rango.start).toISOString(),
       link_gestion: link,
+      direccion,
     }).catch(() => {});
 
     await enviarCorreo("recordatorio_cita_profesional", {
@@ -65,6 +68,7 @@ export async function recordatoriosRequest(req: Request): Promise<Response> {
       cliente: cliente.nombre,
       servicio,
       fecha: new Date(rango.start).toISOString(),
+      direccion,
     }).catch(() => {});
 
     // Marcar como recordada (guarda WHERE recordado_at IS NULL por si hay concurrencia)

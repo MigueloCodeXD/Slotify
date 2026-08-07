@@ -50,7 +50,16 @@ export function Configuracion() {
     rol: "",
   });
 
+  const [enviando, setEnviando] = useState(false);
+
   const { notificar } = useToast();
+
+  const emailValido = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const telefonoValido = (t: string) => /^[+\d][\d\s()-]{6,}$/.test(t);
+  const nombreServicioExiste = (nombre: string, ignoreId?: string) =>
+    servicios.some(
+      (s) => s.id !== ignoreId && s.nombre.trim().toLowerCase() === nombre.trim().toLowerCase()
+    );
 
   const cargarTodo = useCallback(async () => {
     try {
@@ -96,6 +105,7 @@ export function Configuracion() {
   }, [cargarTodo]);
 
   async function guardarDisponibilidad() {
+    if (enviando) return;
     const token = (await getTokenSesion()) ?? undefined;
     const dias = disponibilidad
       .filter((d) => d.hora_inicio && d.hora_fin)
@@ -104,11 +114,14 @@ export function Configuracion() {
       if (d.hora_fin <= d.hora_inicio) return notificar("Hay un rango con hora de fin anterior a la de inicio.", "error");
     }
     if (dias.length === 0) return notificar("Añade al menos un rango de disponibilidad.", "error");
+    setEnviando(true);
     try {
       await llamarEdge("configuracion-profesional", { accion: "guardar_disponibilidad", dias }, token);
       notificar("Disponibilidad guardada.", "exito");
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -127,6 +140,8 @@ export function Configuracion() {
   async function actualizarConfig(e: React.FormEvent) {
     e.preventDefault();
     if (!config) return;
+    if (enviando) return;
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge(
@@ -143,15 +158,27 @@ export function Configuracion() {
       notificar("Configuración guardada.", "exito");
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
   async function crearServicio(e: React.FormEvent) {
     e.preventDefault();
+    if (enviando) return;
     if (nuevoServicio.nombre.trim().length < 2) {
       notificar("El nombre es obligatorio.", "error");
       return;
     }
+    if (nombreServicioExiste(nuevoServicio.nombre)) {
+      notificar(`Ya existe un servicio llamado "${nuevoServicio.nombre.trim()}".`, "error");
+      return;
+    }
+    if (!nuevoServicio.precio || Number(nuevoServicio.precio) <= 0 || !nuevoServicio.duracion || Number(nuevoServicio.duracion) <= 0) {
+      notificar("Indica un precio y una duración válidos.", "error");
+      return;
+    }
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge(
@@ -171,6 +198,8 @@ export function Configuracion() {
       await refrescarServicios();
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -199,6 +228,12 @@ export function Configuracion() {
   async function guardarCategoria(e: React.FormEvent) {
     e.preventDefault();
     if (nuevaCategoria.trim().length < 1) return;
+    if (enviando) return;
+    if (categorias.some((c) => c.nombre.toLowerCase() === nuevaCategoria.trim().toLowerCase())) {
+      notificar("Esa categoría ya existe.", "error");
+      return;
+    }
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge("gestionar-categorias", { accion: "crear", nombre: nuevaCategoria.trim() }, token);
@@ -208,12 +243,20 @@ export function Configuracion() {
       setCategorias(cats.categorias ?? []);
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
   async function renombrarCategoria(id: string, nombre: string) {
     const nuevo = window.prompt("Nuevo nombre de la categoría", nombre);
     if (!nuevo || nuevo.trim() === nombre) return;
+    if (enviando) return;
+    if (categorias.some((c) => c.id !== id && c.nombre.toLowerCase() === nuevo.trim().toLowerCase())) {
+      notificar("Ya existe una categoría con ese nombre.", "error");
+      return;
+    }
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge("gestionar-categorias", { accion: "renombrar", id, nombre: nuevo.trim() }, token);
@@ -223,6 +266,8 @@ export function Configuracion() {
       await refrescarServicios();
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -260,6 +305,16 @@ export function Configuracion() {
   async function guardarEdicionServicio(e: React.FormEvent) {
     e.preventDefault();
     if (!editandoServicio) return;
+    if (enviando) return;
+    if (formServicio.nombre.trim().length < 2) {
+      notificar("El nombre es obligatorio.", "error");
+      return;
+    }
+    if (nombreServicioExiste(formServicio.nombre, editandoServicio.id)) {
+      notificar(`Ya existe un servicio llamado "${formServicio.nombre.trim()}".`, "error");
+      return;
+    }
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge(
@@ -281,6 +336,8 @@ export function Configuracion() {
       await refrescarServicios();
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -298,22 +355,40 @@ export function Configuracion() {
 
   async function invitarProfesional(e: React.FormEvent) {
     e.preventDefault();
+    if (enviando) return;
+    if (invitar.nombre.trim().length < 2) {
+      notificar("El nombre del profesional es obligatorio.", "error");
+      return;
+    }
+    if (!emailValido(invitar.email.trim())) {
+      notificar("Ingresa un email válido.", "error");
+      return;
+    }
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       const res = await llamarEdge<{ mensaje: string }>("invitar-profesional", invitar, token);
       setInvitar({ nombre: "", email: "" });
       notificar(res.mensaje, "exito");
-    } catch (e) {
-      notificar((e as Error).message, "error");
+    } catch (err) {
+      notificar((err as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
   async function guardarPerfil(e: React.FormEvent) {
     e.preventDefault();
+    if (enviando) return;
     if (perfil.nombre.trim().length < 2) {
       notificar("El nombre es obligatorio.", "error");
       return;
     }
+    if (perfil.telefono.trim() && !telefonoValido(perfil.telefono.trim())) {
+      notificar("Ingresa un teléfono válido (solo números, +, espacios, guiones).", "error");
+      return;
+    }
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge(
@@ -324,6 +399,8 @@ export function Configuracion() {
       notificar("Perfil actualizado.", "exito");
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -391,11 +468,11 @@ export function Configuracion() {
             onChange={(e) => setPerfil({ ...perfil, cargo: e.target.value })}
             className="border-white/10 bg-white/[0.06] text-zinc-100"
           />
-          <div className="sm:col-span-2">
-            <Boton type="submit" variante="primario">
-              Guardar perfil
-            </Boton>
-          </div>
+<div className="sm:col-span-2">
+              <Boton type="submit" variante="primario" disabled={enviando}>
+                {enviando ? "Guardando…" : "Guardar configuración"}
+              </Boton>
+            </div>
         </form>
       </Tarjeta>
 
@@ -445,11 +522,11 @@ export function Configuracion() {
                 placeholder="Describe tu negocio..."
               />
             </div>
-            <div className="sm:col-span-2">
-              <Boton type="submit" variante="primario">
-                Guardar configuración
-              </Boton>
-            </div>
+<div className="sm:col-span-2">
+            <Boton type="submit" variante="primario" disabled={enviando}>
+              {enviando ? "Guardando…" : "Guardar perfil"}
+            </Boton>
+          </div>
           </form>
         )}
       </Tarjeta>
@@ -552,8 +629,8 @@ export function Configuracion() {
           >
             + Añadir rango
           </Boton>
-          <Boton variante="primario" onClick={guardarDisponibilidad}>
-            Guardar disponibilidad
+          <Boton variante="primario" onClick={guardarDisponibilidad} disabled={enviando}>
+            {enviando ? "Guardando…" : "Guardar disponibilidad"}
           </Boton>
         </div>
       </Tarjeta>
@@ -633,8 +710,8 @@ export function Configuracion() {
             />
           </div>
           <div className="sm:col-span-4">
-            <Boton type="submit" variante="primario" className="w-full">
-              Crear
+            <Boton type="submit" variante="primario" className="w-full" disabled={enviando}>
+              {enviando ? "Creando…" : "Crear"}
             </Boton>
           </div>
         </form>
@@ -657,8 +734,8 @@ export function Configuracion() {
             className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/25"
           />
           <div className="flex items-end">
-            <Boton type="submit" variante="primario">
-              Añadir
+            <Boton type="submit" variante="primario" disabled={enviando}>
+              {enviando ? "Añadiendo…" : "Añadir"}
             </Boton>
           </div>
         </form>
@@ -715,8 +792,8 @@ export function Configuracion() {
               className="border-white/10 bg-white/[0.06] text-zinc-100"
             />
             <div className="flex items-end">
-              <Boton type="submit" variante="primario" className="w-full">
-                Enviar invitación
+              <Boton type="submit" variante="primario" className="w-full" disabled={enviando}>
+                {enviando ? "Enviando…" : "Enviar invitación"}
               </Boton>
             </div>
           </form>
@@ -802,8 +879,8 @@ export function Configuracion() {
               Activo (aparece en la página pública)
             </label>
             <div className="mt-2 flex gap-2">
-              <Boton type="submit" variante="primario" className="flex-1">
-                Guardar
+              <Boton type="submit" variante="primario" className="flex-1" disabled={enviando}>
+                {enviando ? "Guardando…" : "Guardar"}
               </Boton>
               <Boton variante="claro" onClick={() => setEditandoServicio(null)}>
                 Cancelar

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Navbar } from "@/components/Navbar";
@@ -29,6 +29,16 @@ export default function Home() {
     style: "currency",
     currency: "USD",
   });
+
+  const grupos = useMemo(() => {
+    const map = new Map<string, ServicioPublico[]>();
+    for (const s of servicios ?? []) {
+      const cat = s.categoria ?? "Otros";
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(s);
+    }
+    return [...map.entries()];
+  }, [servicios]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -61,6 +71,11 @@ export default function Home() {
           {config?.descripcion && (
             <p className="mx-auto mt-3 max-w-2xl text-sm text-violet-200/70 sm:text-base">
               {config.descripcion}
+            </p>
+          )}
+          {config?.direccion && (
+            <p className="mx-auto mt-3 max-w-xl text-sm text-violet-200/60">
+              📍 {config.direccion}
             </p>
           )}
           <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -98,15 +113,22 @@ export default function Home() {
           </p>
         </section>
 
-        <section className="relative mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {(servicios ?? []).map((s, i) => {
-            const ofrecidos = profesionales.filter((p) => s.profesionales_ids.includes(p.id));
-            return (
-              <Tarjeta
-                key={s.id}
-                className="group flex flex-col p-6 animate-fade-up hover:-translate-y-1.5"
-                style={{ animationDelay: `${100 + i * 80}ms` }}
-              >
+        {grupos.map(([categoria, lista], gi) => (
+          <div key={categoria} className="mx-auto mb-12 max-w-5xl animate-fade-up">
+            <h3 className="mb-4 flex items-center gap-2 text-lg font-bold text-white">
+              <span className="h-6 w-1.5 rounded-full bg-gradient-to-b from-violet-500 to-fuchsia-500" />
+              {categoria}
+              <span className="text-sm font-normal text-violet-200/60">({lista.length})</span>
+            </h3>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {lista.map((s, i) => {
+                const ofrecidos = profesionales.filter((p) => s.profesionales_ids.includes(p.id));
+                return (
+                  <Tarjeta
+                    key={s.id}
+                    className="group flex flex-col p-6 animate-fade-up hover:-translate-y-1.5"
+                    style={{ animationDelay: `${Math.min(gi, 2) * 150 + i * 80}ms` }}
+                  >
                 <div className="mb-1 flex items-start justify-between gap-3">
                   <h3 className="text-lg font-bold text-zinc-100">{s.nombre}</h3>
                   <span className="rounded-full bg-violet-400/15 px-2.5 py-1 text-sm font-bold text-violet-300">
@@ -159,7 +181,9 @@ export default function Home() {
               </Tarjeta>
             );
           })}
-        </section>
+            </div>
+          </div>
+        ))}
 
         {servicios && servicios.length === 0 && (
           <p className="py-16 text-center text-violet-100">

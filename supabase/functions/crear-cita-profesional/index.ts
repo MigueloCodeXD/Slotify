@@ -166,6 +166,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     link_confirmar: linkConfirmar,
     link_gestion: linkGestion,
     negocio: config?.nombre_negocio ?? "Slotify",
+    direccion: config?.direccion ?? "",
   }).catch(() => {});
 
   logInfo("crear-cita-profesional", "cita_creada", {

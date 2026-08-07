@@ -60,6 +60,8 @@ export function MiCita() {
   const [slots, setSlots] = useState<{ start: string; end: string }[]>([]);
   const [cargandoSlots, setCargandoSlots] = useState(false);
   const [ocupado, setOcupado] = useState(false);
+  const [mensaje, setMensaje] = useState("");
+  const [enviandoMensaje, setEnviandoMensaje] = useState(false);
 
   async function cargar() {
     try {
@@ -82,6 +84,25 @@ export function MiCita() {
     if (token) cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  async function enviarMensaje() {
+    if (!cita || mensaje.trim().length < 5 || enviandoMensaje) return;
+    setEnviandoMensaje(true);
+    try {
+      await llamarEdge("contactar-profesional", {
+        token_gestion: token,
+        cita_id: cita.id,
+        mensaje: mensaje.trim(),
+      });
+      setMensaje("");
+      notificar("Mensaje enviado al profesional.", "exito");
+      await cargar();
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    } finally {
+      setEnviandoMensaje(false);
+    }
+  }
 
   const dias = useMemo(() => diasProximos(7, TZ), []);
 
@@ -229,6 +250,27 @@ export function MiCita() {
               ))}
             </div>
           )}
+
+          <div className="mt-4 rounded-xl border border-violet-400/25 bg-violet-400/5 p-4">
+            <p className="mb-2 text-xs font-semibold text-violet-200">Mensaje al profesional</p>
+            <textarea
+              value={mensaje}
+              onChange={(e) => setMensaje(e.target.value)}
+              rows={3}
+              maxLength={500}
+              placeholder="Escribe tu mensaje para el profesional…"
+              className="w-full rounded-xl border border-white/10 bg-white/[0.06] p-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:outline-none"
+            />
+            <div className="mt-3 flex gap-2">
+              <Boton
+                variante="primario"
+                disabled={mensaje.trim().length < 5 || enviandoMensaje}
+                onClick={enviarMensaje}
+              >
+                {enviandoMensaje ? "Enviando…" : "Enviar mensaje"}
+              </Boton>
+            </div>
+          </div>
 
           {cita.estado === "pendiente" && cita.confirmacion_pendiente && (
             <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-4">

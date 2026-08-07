@@ -53,13 +53,15 @@ export async function eliminarCitaProfRequest(req: Request): Promise<Response> {
 
   const rango = parseRango(cita.rango_tiempo as string);
 
-  await enviarCorreo("cita_cancelada_cliente", {
-    to: cita.cliente.email,
-    nombre: cita.cliente.nombre,
-    servicio: cita.servicio.nombre,
-    profesional: cita.profesional.nombre,
-    fecha: rango.start,
-  }).catch(() => {});
+  if (cita.estado !== "cancelada") {
+    await enviarCorreo("cita_cancelada_cliente", {
+      to: cita.cliente.email,
+      nombre: cita.cliente.nombre,
+      servicio: cita.servicio.nombre,
+      profesional: cita.profesional.nombre,
+      fecha: rango.start,
+    }).catch(() => {});
+  }
 
   const { error: eDel } = await admin.from("citas").delete().eq("id", cita.id);
   if (eDel) return json({ error: "No se pudo eliminar la cita." }, 500);

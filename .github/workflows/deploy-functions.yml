@@ -32,7 +32,7 @@ jobs:
       - name: Deploy all Edge Functions
         run: |
           # Funciones que se invocan SIN JWT (publicas y/o cron) -> no-verify-jwt
-          NO_VERIFY="asistente-cliente cancelar-cita cancelar-cita-profesional consultar-agenda-dia consultar-disponibilidad copiloto-profesional crear-cita editar-catalogo enviar-aviso invitar-profesional reprogramar-cita resumen-matutino solicitar-codigo-acceso recordatorios-citas reprogramar-cita-profesional dashboard-profesional actualizar-cita-profesional historial-cliente-profesional crear-cita-profesional confirmar-cita vencer-confirmaciones"
+          NO_VERIFY="asistente-cliente cancelar-cita cancelar-cita-profesional consultar-agenda-dia consultar-disponibilidad consultar-mis-citas copiloto-profesional crear-cita editar-catalogo editar-perfil-cliente enviar-aviso invitar-profesional reprogramar-cita resumen-matutino solicitar-codigo-acceso verificar-codigo-acceso recordatorios-citas contactar-profesional reprogramar-cita-profesional dashboard-profesional actualizar-cita-profesional historial-cliente-profesional crear-cita-profesional confirmar-cita vencer-confirmaciones"
 
           failed=0
           for fn in $(ls supabase/functions | grep -v '^_shared$'); do

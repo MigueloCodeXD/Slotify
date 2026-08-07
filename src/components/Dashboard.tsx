@@ -433,7 +433,22 @@ export function Dashboard() {
         </Tarjeta>
       </div>
 
-      <SeccionMensajes />
+      <Tarjeta className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Mensajes</h2>
+            <p className="mt-1 text-xs text-zinc-400">
+              Conversaciones con tus clientes sobre sus citas.
+            </p>
+          </div>
+          <Link
+            href="/panel/mensajes"
+            className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400/100"
+          >
+            Ver y responder mensajes
+          </Link>
+        </div>
+      </Tarjeta>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Tarjeta className="p-5">
@@ -621,191 +636,5 @@ function ModalPago({
         </div>
       </div>
     </div>
-  );
-}
-
-interface ConvMensaje {
-  id: string;
-  mensaje: string;
-  emisor: "cliente" | "profesional";
-  created_at: string;
-}
-
-interface Conversacion {
-  cita_id: string;
-  cita: {
-    id: string;
-    estado: string;
-    rango_tiempo: string;
-    servicio: { nombre: string } | null;
-    cliente: { nombre: string } | null;
-  } | null;
-  mensajes: ConvMensaje[];
-}
-
-function fechaCita(rango: string): string {
-  const clean = rango.replace(/[\[\]\(\)"]/g, "").trim();
-  const inicio = clean.split(",")[0]?.replace(" ", "T").replace(/([+-]\d\d)$/, "$1:00");
-  if (!inicio) return "—";
-  const d = new Date(inicio);
-  return new Intl.DateTimeFormat("es", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: TZ,
-  }).format(d);
-}
-
-function SeccionMensajes() {
-  const { notificar } = useToast();
-  const [abierto, setAbierto] = useState(false);
-  const [conversaciones, setConversaciones] = useState<Conversacion[]>([]);
-  const [activaId, setActivaId] = useState<string | null>(null);
-  const [texto, setTexto] = useState("");
-  const [cargando, setCargando] = useState(false);
-  const [enviando, setEnviando] = useState(false);
-
-  async function cargar() {
-    setCargando(true);
-    try {
-      const token = (await getTokenSesion()) ?? undefined;
-      const res = await llamarEdge<{ conversaciones: Conversacion[] }>("consultar-mensajes", {}, token);
-      setConversaciones(res.conversaciones ?? []);
-      if (!activaId && res.conversaciones.length > 0) setActivaId(res.conversaciones[0].cita_id);
-    } catch (e) {
-      notificar((e as Error).message, "error");
-    } finally {
-      setCargando(false);
-    }
-  }
-
-  async function responder() {
-    if (!activaId || texto.trim().length < 1 || enviando) return;
-    setEnviando(true);
-    try {
-      const token = (await getTokenSesion()) ?? undefined;
-      await llamarEdge("enviar-aviso", { cita_id: activaId, mensaje: texto, es_publico_cliente: true }, token);
-      setTexto("");
-      notificar("Respuesta enviada al cliente.", "exito");
-      await cargar();
-    } catch (e) {
-      notificar((e as Error).message, "error");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  const activa = conversaciones.find((c) => c.cita_id === activaId) ?? null;
-
-  return (
-    <Tarjeta className="p-5">
-      <button
-        onClick={() => {
-          setAbierto(!abierto);
-          if (!abierto && conversaciones.length === 0) cargar();
-        }}
-        className="flex w-full items-center justify-between"
-      >
-        <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Mensajes</h2>
-        <span className="text-xs text-zinc-400">{abierto ? "Ocultar ▴" : "Ver ▾"}</span>
-      </button>
-
-      {abierto && (
-        <div className="mt-3 grid gap-4 lg:grid-cols-2">
-          <div>
-            {cargando ? (
-              <p className="py-6 text-center text-sm text-zinc-400">Cargando…</p>
-            ) : conversaciones.length === 0 ? (
-              <p className="py-6 text-sm text-zinc-400">Aún no hay mensajes.</p>
-            ) : (
-              <ul className="space-y-2">
-                {conversaciones.map((c) => {
-                  const nuevas = c.mensajes.filter((m) => m.emisor === "cliente").length;
-                  const ultimo = c.mensajes[c.mensajes.length - 1];
-                  return (
-                    <li key={c.cita_id}>
-                      <button
-                        onClick={() => setActivaId(c.cita_id)}
-                        className={`w-full rounded-xl border px-3 py-2 text-left transition ${
-                          activaId === c.cita_id
-                            ? "border-violet-400/50 bg-violet-400/10"
-                            : "border-white/10 bg-white/[0.04] hover:border-violet-400/30"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-zinc-100">
-                            {c.cita?.cliente?.nombre ?? "Cliente"}
-                          </span>
-                          {nuevas > 0 && (
-                            <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                              {nuevas}
-                            </span>
-                          )}
-                        </div>
-                        <p className="truncate text-xs text-zinc-400">
-                          {c.cita?.servicio?.nombre ?? "Servicio"} · {c.cita ? fechaCita(c.cita.rango_tiempo) : ""}
-                        </p>
-                        {ultimo && (
-                          <p className="truncate text-xs text-zinc-500">
-                            {ultimo.emisor === "cliente" ? "Cliente: " : "Tú: "}
-                            {ultimo.mensaje}
-                          </p>
-                        )}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          {activa && (
-            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-zinc-100">
-                  {activa.cita?.cliente?.nombre ?? "Cliente"}
-                </p>
-                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${COLORES[activa.cita?.estado ?? ""] ?? "bg-white/10 text-zinc-300"}`}>
-                  {ETIQUETAS[activa.cita?.estado ?? ""] ?? activa.cita?.estado}
-                </span>
-              </div>
-              <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-                {activa.mensajes.map((m) => (
-                  <div key={m.id} className={`flex ${m.emisor === "cliente" ? "justify-start" : "justify-end"}`}>
-                    <div
-                      className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
-                        m.emisor === "cliente"
-                          ? "rounded-bl-sm bg-white/10 text-zinc-100"
-                          : "rounded-br-sm bg-violet-600/90 text-white"
-                      }`}
-                    >
-                      {m.mensaje}
-                      <div className="mt-1 text-right text-[10px] opacity-60">
-                        {new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit", timeZone: TZ }).format(
-                          new Date(m.created_at)
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 flex gap-2">
-                <textarea
-                  value={texto}
-                  onChange={(e) => setTexto(e.target.value)}
-                  rows={2}
-                  placeholder="Escribe tu respuesta al cliente…"
-                  className="flex-1 rounded-xl border border-white/10 bg-white/[0.06] p-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-violet-400 outline-none"
-                />
-                <Boton variante="primario" onClick={responder} disabled={enviando || texto.trim().length < 1}>
-                  {enviando ? "Enviando…" : "Responder"}
-                </Boton>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </Tarjeta>
   );
 }

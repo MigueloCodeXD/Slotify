@@ -40,6 +40,7 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
   const links = [
     { href: "/panel/dashboard", label: "Resumen" },
     { href: "/panel", label: "Calendario" },
+    { href: "/panel/mensajes", label: "Mensajes" },
     { href: "/panel/configuracion", label: "Configuración" },
     ...(rol === "admin"
       ? [

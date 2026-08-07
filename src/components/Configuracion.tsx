@@ -112,8 +112,29 @@ export function Configuracion() {
     const dias = disponibilidad
       .filter((d) => d.hora_inicio && d.hora_fin)
       .map((d) => ({ dia_semana: Number(d.dia_semana), hora_inicio: d.hora_inicio.slice(0, 5), hora_fin: d.hora_fin.slice(0, 5) }));
+    const aMin = (h: string) => {
+      const [hh, mm] = h.split(":").map(Number);
+      return hh * 60 + mm;
+    };
     for (const d of dias) {
       if (d.hora_fin <= d.hora_inicio) return notificar("Hay un rango con hora de fin anterior a la de inicio.", "error");
+    }
+    const porDia = new Map<number, { inicio: string; fin: string }[]>();
+    for (const d of dias) {
+      const lista = porDia.get(d.dia_semana) ?? [];
+      lista.push({ inicio: d.hora_inicio, fin: d.hora_fin });
+      porDia.set(d.dia_semana, lista);
+    }
+    for (const [dia, rangos] of porDia.entries()) {
+      const ordenados = [...rangos].sort((a, b) => aMin(a.inicio) - aMin(b.inicio));
+      for (let i = 1; i < ordenados.length; i++) {
+        if (aMin(ordenados[i].inicio) < aMin(ordenados[i - 1].fin)) {
+          return notificar(
+            `Hay horarios que se cruzan el mismo día (${DIAS[dia] ?? "día"}). Ajusta los rangos para que no se superpongan.`,
+            "error"
+          );
+        }
+      }
     }
     if (dias.length === 0) return notificar("Añade al menos un rango de disponibilidad.", "error");
     setEnviando(true);

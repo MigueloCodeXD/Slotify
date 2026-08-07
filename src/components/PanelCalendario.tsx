@@ -310,10 +310,6 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
   }
 
   async function eliminarCita(id: string) {
-    const confirmado = window.confirm(
-      "¿Eliminar esta cita definitivamente? Se enviará un correo de cancelación al cliente."
-    );
-    if (!confirmado) return;
     setDetalleMsg(null);
     try {
       const token = (await getTokenSesion()) ?? undefined;

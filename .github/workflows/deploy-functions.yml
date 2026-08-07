@@ -38,10 +38,10 @@ jobs:
           for fn in $(ls supabase/functions | grep -v '^_shared$'); do
             if echo " $NO_VERIFY " | grep -q " $fn "; then
               npx supabase@latest functions deploy "$fn" \
-                --project-id "$PROJECT_ID" --use-api --no-verify-jwt || failed=1
+                --project-ref "$PROJECT_ID" --use-api --no-verify-jwt || failed=1
             else
               npx supabase@latest functions deploy "$fn" \
-                --project-id "$PROJECT_ID" --use-api || failed=1
+                --project-ref "$PROJECT_ID" --use-api || failed=1
             fi
           done
           exit $failed

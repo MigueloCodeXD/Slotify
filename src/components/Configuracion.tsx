@@ -12,11 +12,21 @@ import type { Config, ServicioPublico } from "@/types";
 
 const DIAS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
+function fmtHoraCorta(h: string): string {
+  if (!h) return "";
+  const [hh, mm] = h.split(":").map(Number);
+  const periodo = hh >= 12 ? "p. m." : "a. m.";
+  const h12 = ((hh + 11) % 12) + 1;
+  return `${h12}:${String(mm).padStart(2, "0")} ${periodo}`;
+}
+
 interface RangoSemanal {
   id?: string;
   dia_semana: number;
   hora_inicio: string;
   hora_fin: string;
+  pausa_inicio?: string;
+  pausa_fin?: string;
 }
 
 export function Configuracion() {
@@ -109,15 +119,28 @@ export function Configuracion() {
   async function guardarDisponibilidad() {
     if (enviando) return;
     const token = (await getTokenSesion()) ?? undefined;
-    const dias = disponibilidad
-      .filter((d) => d.hora_inicio && d.hora_fin)
-      .map((d) => ({ dia_semana: Number(d.dia_semana), hora_inicio: d.hora_inicio.slice(0, 5), hora_fin: d.hora_fin.slice(0, 5) }));
     const aMin = (h: string) => {
       const [hh, mm] = h.split(":").map(Number);
       return hh * 60 + mm;
     };
-    for (const d of dias) {
-      if (d.hora_fin <= d.hora_inicio) return notificar("Hay un rango con hora de fin anterior a la de inicio.", "error");
+    const dias: { dia_semana: number; hora_inicio: string; hora_fin: string }[] = [];
+    for (const r of disponibilidad) {
+      if (!r.hora_inicio || !r.hora_fin) continue;
+      const dia = Number(r.dia_semana);
+      const ini = r.hora_inicio.slice(0, 5);
+      const fin = r.hora_fin.slice(0, 5);
+      const pi = r.pausa_inicio ? r.pausa_inicio.slice(0, 5) : "";
+      const pf = r.pausa_fin ? r.pausa_fin.slice(0, 5) : "";
+      if (fin <= ini) return notificar("Hay un rango con hora de fin anterior a la de inicio.", "error");
+      if (pi && pf) {
+        if (pf <= pi) return notificar("La pausa debe tener hora final posterior a su inicio.", "error");
+        if (pi <= ini || pf >= fin)
+          return notificar("La pausa debe estar dentro del horario del día (entre inicio y fin).", "error");
+        dias.push({ dia_semana: dia, hora_inicio: ini, hora_fin: pi });
+        dias.push({ dia_semana: dia, hora_inicio: pf, hora_fin: fin });
+      } else {
+        dias.push({ dia_semana: dia, hora_inicio: ini, hora_fin: fin });
+      }
     }
     const porDia = new Map<number, { inicio: string; fin: string }[]>();
     for (const d of dias) {
@@ -626,36 +649,76 @@ export function Configuracion() {
         </div>
         <div className="space-y-2">
           {disponibilidad.map((d, idx) => (
-            <div key={idx} className="grid grid-cols-3 items-center gap-2 sm:grid-cols-4">
-              <select
-                value={d.dia_semana}
-                onChange={(e) => actualizarRango(idx, "dia_semana", e.target.value)}
-                className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
-              >
-                {DIAS.map((nombre, i) => (
-                  <option key={i} value={i}>
-                    {nombre}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="time"
-                value={d.hora_inicio}
-                onChange={(e) => actualizarRango(idx, "hora_inicio", e.target.value)}
-                className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
-              />
-              <input
-                type="time"
-                value={d.hora_fin}
-                onChange={(e) => actualizarRango(idx, "hora_fin", e.target.value)}
-                className="rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
-              />
-              <button
-                onClick={() => setDisponibilidad((prev) => prev.filter((_, i) => i !== idx))}
-                className="rounded-lg border border-rose-300/30 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/10"
-              >
-                ✕ Quitar
-              </button>
+            <div key={idx} className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+              <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-6">
+                <div>
+                  <span className="mb-1 block text-[10px] font-semibold text-zinc-400">Día</span>
+                  <select
+                    value={d.dia_semana}
+                    onChange={(e) => actualizarRango(idx, "dia_semana", e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
+                  >
+                    {DIAS.map((nombre, i) => (
+                      <option key={i} value={i}>
+                        {nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <span className="mb-1 block text-[10px] font-semibold text-zinc-400">Desde</span>
+                  <input
+                    type="time"
+                    value={d.hora_inicio}
+                    onChange={(e) => actualizarRango(idx, "hora_inicio", e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <span className="mb-1 block text-[10px] font-semibold text-zinc-400">Hasta</span>
+                  <input
+                    type="time"
+                    value={d.hora_fin}
+                    onChange={(e) => actualizarRango(idx, "hora_fin", e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <span className="mb-1 block text-[10px] font-semibold text-violet-300/80">
+                    Pausa desde<span className="text-zinc-500"> (opcional)</span>
+                  </span>
+                  <input
+                    type="time"
+                    value={d.pausa_inicio ?? ""}
+                    onChange={(e) => actualizarRango(idx, "pausa_inicio", e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <span className="mb-1 block text-[10px] font-semibold text-violet-300/80">
+                    Reanuda<span className="text-zinc-500"> (opcional)</span>
+                  </span>
+                  <input
+                    type="time"
+                    value={d.pausa_fin ?? ""}
+                    onChange={(e) => actualizarRango(idx, "pausa_fin", e.target.value)}
+                    className="w-full rounded-lg border border-white/10 bg-white/[0.06] px-2 py-2 text-sm text-zinc-100"
+                  />
+                </div>
+                <button
+                  onClick={() => setDisponibilidad((prev) => prev.filter((_, i) => i !== idx))}
+                  className="rounded-lg border border-rose-300/30 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/10"
+                >
+                  ✕ Quitar
+                </button>
+              </div>
+              {d.pausa_inicio && d.pausa_fin && (
+                <p className="mt-2 text-[11px] text-zinc-400">
+                  Se agendará {fmtHoraCorta(d.hora_inicio)}–{fmtHoraCorta(d.pausa_inicio)} y{" "}
+                  {fmtHoraCorta(d.pausa_fin)}–{fmtHoraCorta(d.hora_fin)}, con una pausa de{" "}
+                  {fmtHoraCorta(d.pausa_inicio)} a {fmtHoraCorta(d.pausa_fin)}.
+                </p>
+              )}
             </div>
           ))}
         </div>

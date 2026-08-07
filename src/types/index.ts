@@ -88,6 +88,8 @@ export interface CitaProfesional {
   notas: string | null;
   confirmacion_pendiente?: boolean | null;
   precio_servicio?: number | null;
+  anticipo?: number | null;
+  estado_pago?: string | null;
   duracion_min_servicio?: number | null;
   servicio: { id: string; nombre: string; duracion_min: number };
   cliente: { id: string; nombre: string; email: string; telefono: string | null };

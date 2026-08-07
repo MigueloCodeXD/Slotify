@@ -116,6 +116,8 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
   const [detalleMsg, setDetalleMsg] = useState<string | null>(null);
   const [nuevaCita, setNuevaCita] = useState(false);
   const [diaAbierto, setDiaAbierto] = useState<string | null>(null);
+  const [pagoCita, setPagoCita] = useState<CitaProfesional | null>(null);
+  const [enviandoPago, setEnviandoPago] = useState(false);
 
   const reproDias = useMemo(() => diasProximos(14, TZ), []);
 
@@ -319,6 +321,21 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
       await cargar();
     } catch (e) {
       setDetalleMsg((e as Error).message);
+    }
+  }
+
+  async function registrarPago(c: CitaProfesional, monto: number, metodo: string, otro?: string) {
+    const token = (await getTokenSesion()) ?? undefined;
+    setEnviandoPago(true);
+    try {
+      await llamarEdge("registrar-pago", { cita_id: c.id, monto, metodo, otro }, token);
+      notificar("Pago registrado.", "exito");
+      setPagoCita(null);
+      await cargar();
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    } finally {
+      setEnviandoPago(false);
     }
   }
 
@@ -967,6 +984,24 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 {cita.estado !== "cancelada" && (
                   <p>💲 Precio: <span className="font-mono font-semibold text-zinc-100">{fmtMoneda(cita.precio_servicio)}</span></p>
                 )}
+                {cita.estado_pago && cita.estado_pago !== "pendiente" && (
+                  <p>
+                    {cita.estado_pago === "pagado" ? "✅" : "🟡"} Pago:{" "}
+                    <span className="font-mono font-semibold text-zinc-100">{cita.estado_pago === "pagado" ? "Pagado" : "Parcial"}</span>
+                    {cita.anticipo != null && cita.anticipo > 0 && (
+                      <span className="text-zinc-400"> · {fmtMoneda(cita.anticipo)}</span>
+                    )}
+                  </p>
+                )}
+                {cita.estado_pago !== "pagado" && cita.estado !== "cancelada" && (
+                  <Boton
+                    variante="primario"
+                    className="mt-2 w-full"
+                    onClick={() => setPagoCita(cita)}
+                  >
+                    💳 Registrar pago
+                  </Boton>
+                )}
                 <button
                   onClick={() => abrirHistorial(cita.cliente!.id)}
                   className="mt-1.5 font-semibold text-violet-300 hover:text-violet-200 hover:underline"
@@ -1101,6 +1136,119 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
           }}
         />
       )}
+
+      {pagoCita && <ModalPago cita={pagoCita} enviando={enviandoPago} onCancel={() => setPagoCita(null)} onConfirm={(m, metodo, otro) => registrarPago(pagoCita, m, metodo, otro)} />}
+    </div>
+  );
+}
+
+function ModalPago({
+  cita,
+  enviando,
+  onCancel,
+  onConfirm,
+}: {
+  cita: CitaProfesional;
+  enviando: boolean;
+  onCancel: () => void;
+  onConfirm: (monto: number, metodo: string, otro?: string) => void;
+}) {
+  const [monto, setMonto] = useState("");
+  const [metodo, setMetodo] = useState("efectivo");
+  const [otro, setOtro] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const precio = Number(cita.precio_servicio ?? 0);
+  const anticipo = Number(cita.anticipo ?? 0);
+  const pendiente = Math.max(0, precio - anticipo);
+
+  function enviar() {
+    const m = Number(monto);
+    if (!Number.isFinite(m) || m <= 0) {
+      setError("Ingresa un monto válido.");
+      return;
+    }
+    if (m > pendiente) {
+      setError(`No puedes pagar más de lo pendiente (${fmtMoneda(pendiente)}).`);
+      return;
+    }
+    if (metodo === "otro" && !otro.trim()) {
+      setError("Describe el método de pago.");
+      return;
+    }
+    setError(null);
+    onConfirm(m, metodo, otro.trim() || undefined);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="font-display text-lg font-semibold text-white">Registrar pago</h3>
+          <button
+            onClick={onCancel}
+            className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="text-xs text-violet-200/70">
+          {cita.cliente?.nombre} · {cita.servicio?.nombre}
+        </p>
+        <div className="mt-2 rounded-xl bg-white/[0.06] px-3 py-2 text-xs text-zinc-300">
+          Precio <span className="font-mono text-violet-200">{fmtMoneda(precio)}</span>
+          <span className="mx-2 text-zinc-500">·</span>
+          Pagado <span className="font-mono text-emerald-200">{fmtMoneda(anticipo)}</span>
+          <span className="mx-2 text-zinc-500">·</span>
+          Resta <span className="font-mono text-amber-200">{fmtMoneda(pendiente)}</span>
+        </div>
+
+        <label className="mt-4 block text-xs font-semibold text-zinc-400">Monto</label>
+        <input
+          type="number"
+          autoFocus
+          value={monto}
+          min={0.01}
+          max={pendiente}
+          step="0.01"
+          onChange={(e) => setMonto(e.target.value)}
+          placeholder={`Monto (máx. ${fmtMoneda(pendiente)})`}
+          className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+        />
+
+        <label className="mt-3 block text-xs font-semibold text-zinc-400">Método</label>
+        <select
+          value={metodo}
+          onChange={(e) => setMetodo(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+        >
+          <option value="efectivo">Efectivo</option>
+          <option value="tarjeta">Tarjeta (débito/crédito)</option>
+          <option value="transferencia">Transferencia / Nequi</option>
+          <option value="otro">Otro (escribir)</option>
+        </select>
+
+        {metodo === "otro" && (
+          <input
+            value={otro}
+            onChange={(e) => setOtro(e.target.value)}
+            placeholder="Ej: bonificación, convenio…"
+            className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+          />
+        )}
+
+        {error && <p className="mt-2 text-sm text-rose-300">{error}</p>}
+
+        <div className="mt-5 flex gap-2">
+          <Boton variante="secundario" className="flex-1" disabled={enviando} onClick={onCancel}>
+            Cancelar
+          </Boton>
+          <Boton variante="primario" className="flex-1" disabled={enviando} onClick={enviar}>
+            {enviando ? "Guardando…" : "Guardar pago"}
+          </Boton>
+        </div>
+      </div>
     </div>
   );
 }

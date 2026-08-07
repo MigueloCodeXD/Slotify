@@ -54,7 +54,7 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
 
   const { data: citas, error } = await admin
     .from("citas")
-    .select("id, profesional_id, rango_tiempo, estado, notas, precio_servicio, duracion_min_servicio, servicio:servicios(id,nombre,duracion_min), cliente:clientes(id,nombre,email,telefono)")
+    .select("id, profesional_id, rango_tiempo, estado, notas, precio_servicio, anticipo, estado_pago, duracion_min_servicio, servicio:servicios(id,nombre,duracion_min), cliente:clientes(id,nombre,email,telefono)")
     .eq("profesional_id", target.id)
     .filter("rango_tiempo", "ov", ventana);
 

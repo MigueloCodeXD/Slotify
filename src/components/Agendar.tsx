@@ -8,6 +8,7 @@ import { configPublica, profesionalesPublicos, serviciosPublicos } from "@/lib/s
 import { llamarEdge } from "@/lib/api";
 import { googleCalendarLink, icsLink } from "@/lib/calendarLink";
 import { diasProximos, fmtPill } from "@/lib/fechas";
+import { TZ, actualizarTZ } from "@/lib/zonaHoraria";
 import { useToast } from "@/components/Toast";
 import type { Config, ProfesionalPublico, ServicioPublico } from "@/types";
 
@@ -18,8 +19,6 @@ interface Slot {
   start: string;
   end: string;
 }
-
-const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
 
 function fmtHora(iso: string): string {
   return new Intl.DateTimeFormat("es", {
@@ -74,7 +73,9 @@ export function Agendar() {
   useEffect(() => {
     Promise.all([configPublica(), serviciosPublicos(), profesionalesPublicos()]).then(
       ([c, s, p]) => {
-        setConfig(c.data as Config | null);
+        const cfg = c.data as Config | null;
+        actualizarTZ(cfg?.zona_horaria);
+        setConfig(cfg);
         const sv = (s.data as ServicioPublico[]) ?? [];
         setServicios(sv);
         setProfesionales((p.data as ProfesionalPublico[]) ?? []);

@@ -4,9 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { Boton, ChipEstado } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
+import { TZ } from "@/lib/zonaHoraria";
 import type { CitaCliente, Aviso } from "@/types";
 
-const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
 
 function fmt(iso: string): string {
   return new Intl.DateTimeFormat("es", {

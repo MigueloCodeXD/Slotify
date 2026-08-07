@@ -9,9 +9,9 @@ import { ChatIA } from "@/components/ChatIA";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
 import { diasProximos, fmtPill } from "@/lib/fechas";
+import { TZ } from "@/lib/zonaHoraria";
 import type { CitaProfesional, Bloqueo, Profesional } from "@/types";
 
-const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
 
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 

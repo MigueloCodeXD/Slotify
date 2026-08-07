@@ -5,6 +5,7 @@ import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion, getRolProfesional } from "@/lib/sesion";
 import { configPublica, serviciosPublicos } from "@/lib/supabaseClient";
+import { ZONAS, actualizarTZ } from "@/lib/zonaHoraria";
 import { useToast } from "@/components/Toast";
 import { ChatIA } from "@/components/ChatIA";
 import type { Config, ServicioPublico } from "@/types";
@@ -72,6 +73,7 @@ export function Configuracion() {
         })(),
       ]);
       setConfig(c.data as Config | null);
+      actualizarTZ((c.data as Config | null)?.zona_horaria);
       setServicios((s.data as ServicioPublico[]) ?? []);
       setDisponibilidad((rango.dias ?? []).map((d) => ({ ...d, dia_semana: Number(d.dia_semana) })));
 
@@ -150,6 +152,7 @@ export function Configuracion() {
           nombre_negocio: config.nombre_negocio,
           direccion: config.direccion ?? "",
           descripcion: config.descripcion ?? "",
+          zona_horaria: config.zona_horaria ?? "",
           margen_anticipacion_horas: Number(config.margen_anticipacion_horas),
           horas_limite_cancelacion: Number(config.horas_limite_cancelacion),
         },
@@ -498,6 +501,21 @@ export function Configuracion() {
               onChange={(e) => setConfig({ ...config, direccion: e.target.value })}
               className="border-white/10 bg-white/[0.06] text-zinc-100"
             />
+            <div>
+              <span className="mb-1 block text-xs font-semibold text-zinc-400">Zona horaria</span>
+              <select
+                value={config.zona_horaria ?? ""}
+                onChange={(e) => setConfig({ ...config, zona_horaria: e.target.value })}
+                className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+              >
+                <option value="">Usar predeterminada</option>
+                {ZONAS.map((z) => (
+                  <option key={z.value} value={z.value}>
+                    {z.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <Campo
               label="Margen de anticipación (horas)"
               type="number"

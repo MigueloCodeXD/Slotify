@@ -1,4 +1,6 @@
-export const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
+import { TZ } from "./zonaHoraria";
+
+export { TZ } from "./zonaHoraria";
 
 export function fechaEnZona(offsetDias: number, tz: string = TZ): string {
   return new Intl.DateTimeFormat("en-CA", {

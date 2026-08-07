@@ -5,12 +5,12 @@ import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Boton, ChipEstado, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
+import { configPublica } from "@/lib/supabaseClient";
 import { googleCalendarLink, icsLink } from "@/lib/calendarLink";
 import { diasProximos, fmtPill } from "@/lib/fechas";
 import { useToast } from "@/components/Toast";
+import { TZ, actualizarTZ } from "@/lib/zonaHoraria";
 import type { CitaCliente, Aviso } from "@/types";
-
-const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
 
 function fmt(iso: string): string {
   return new Intl.DateTimeFormat("es", {
@@ -67,6 +67,8 @@ export function MiCita() {
         "consultar-mis-citas",
         { token_gestion: token }
       );
+      const { data: cfg } = await configPublica();
+      actualizarTZ((cfg as { zona_horaria?: string } | null)?.zona_horaria);
       setCita(res.citas[0]);
       setAvisos(res.avisos ?? {});
     } catch (e) {

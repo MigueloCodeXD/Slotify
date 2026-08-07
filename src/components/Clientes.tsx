@@ -5,8 +5,8 @@ import { Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
 import { useToast } from "@/components/Toast";
+import { TZ } from "@/lib/zonaHoraria";
 
-const TZ = process.env.NEXT_PUBLIC_APP_TIMEZONE ?? "America/Bogota";
 
 interface UltimaCita {
   rango_tiempo: string;

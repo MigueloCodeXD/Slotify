@@ -141,7 +141,7 @@ export async function consultarDisponibilidad(opts: {
     if (eP) throw new Error("Error leyendo profesionales");
     profesionalIds = (ps ?? []).map((p) => p.profesional_id);
   }
-  if (profesionalIds.length === 0) return { slots: [] };
+  if (profesionalIds.length === 0) return { slots: [], ocupados: [] };
 
   const { data: activos, error: eA } = await admin
     .from("profesionales")
@@ -151,7 +151,7 @@ export async function consultarDisponibilidad(opts: {
   if (eA) throw new Error("Error leyendo profesionales");
   const activosSet = new Set((activos ?? []).map((p) => p.id));
   const idsActivos = profesionalIds.filter((id) => activosSet.has(id));
-  if (idsActivos.length === 0) return { slots: [] };
+  if (idsActivos.length === 0) return { slots: [], ocupados: [] };
 
   const margenMs = cfg.margen_anticipacion_horas * 3_600_000;
   const nowPlus = Date.now() + margenMs;

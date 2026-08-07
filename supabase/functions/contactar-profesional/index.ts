@@ -54,12 +54,18 @@ export async function contactarRequest(req: Request): Promise<Response> {
 
   const { data: cita } = await admin
     .from("citas")
-    .select("id, profesional:profesionales(id, nombre, email), servicio:servicios(nombre), rango_tiempo")
+    .select("id, profesional_id, servicio:servicios(nombre), rango_tiempo")
     .eq("id", citaId)
     .single();
-  if (!cita || !cita.profesional) return json({ error: "Cita no encontrada." }, 404);
+  if (!cita) return json({ error: "Cita no encontrada." }, 404);
 
-  const prof = cita.profesional as { nombre: string; email: string };
+  const { data: prof } = await admin
+    .from("profesionales")
+    .select("nombre, email")
+    .eq("id", cita.profesional_id)
+    .single();
+  if (!prof) return json({ error: "Cita no encontrada." }, 404);
+
   const rango = String(cita.rango_tiempo ?? "");
   const [startRaw] = rango.replace(/[\[\]"]/g, "").split(",");
   const inicio = startRaw ? new Date(startRaw).toISOString() : null;

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
-import { admin, json } from "../_shared/db.ts";
+import { admin, json, asegurarCategoria } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 import { chatConHerramientas, type ToolDef } from "../_shared/gemini.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
@@ -744,7 +744,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       const campos: Record<string, unknown> = {};
       if (d.nombre !== undefined) campos.nombre = d.nombre;
       if (d.descripcion !== undefined) campos.descripcion = d.descripcion;
-      if (d.categoria !== undefined) campos.categoria = d.categoria;
+      if (d.categoria !== undefined) campos.categoria = await asegurarCategoria(d.categoria);
       if (d.precio !== undefined) campos.precio = d.precio;
       if (d.duracion_min !== undefined) campos.duracion_min = d.duracion_min;
       if (d.buffer_min !== undefined) campos.buffer_min = d.buffer_min;
@@ -1076,7 +1076,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
         proximas,
         bloqueos_hoy,
         mes: { mes, cuenta, ingresos, total: (mesRes.data ?? []).length },
-        timezone: TZ,
+        timezone: tz,
       };
     },
   };

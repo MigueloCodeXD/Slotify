@@ -158,8 +158,8 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
   const linkConfirmar = `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/confirmar?token=${cita.token_gestion}`;
 
   await enviarCorreo("cita_pendiente_confirmacion_cliente", {
-    to: cliente.email,
-    nombre: cliente.nombre,
+    to: cliente?.email ?? "",
+    nombre: cliente?.nombre ?? "Cliente",
     servicio: servicio.nombre,
     profesional: target.nombre,
     fecha: new Date(startMs).toISOString(),

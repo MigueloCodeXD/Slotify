@@ -73,7 +73,7 @@ export async function libretaClientesRequest(req: Request): Promise<Response> {
   ]);
 
   const clientes = (clientesRes.data ?? []) as { id: string; nombre: string; email: string | null; telefono: string | null }[];
-  const citas = (citasRes.data ?? []) as CitaExt[];
+  const citas = (citasRes.data ?? []) as unknown as CitaExt[];
 
   const porCliente: Record<string, Agregado> = {};
   for (const c of citas) {

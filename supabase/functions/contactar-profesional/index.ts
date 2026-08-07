@@ -30,7 +30,7 @@ export async function contactarRequest(req: Request): Promise<Response> {
 
   let clienteEmail: string | null = null;
   let clienteNombre = "Cliente";
-  let citaId = d.cita_id;
+  const citaId = d.cita_id;
 
   // Autorización: sesión de cliente o token de gestión de la cita.
   if (d.sesion) {
@@ -42,7 +42,6 @@ export async function contactarRequest(req: Request): Promise<Response> {
   } else if (d.token_gestion) {
     const { data: cita } = await admin.from("citas").select("cliente_id").eq("token_gestion", d.token_gestion).single();
     if (!cita) return json({ error: "Cita no encontrada." }, 404);
-    citaId = cita.cliente_id;
     const { data: cli } = await admin.from("clientes").select("nombre, email").eq("id", cita.cliente_id).maybeSingle();
     if (cli) {
       clienteEmail = cli.email;
@@ -81,6 +80,18 @@ export async function contactarRequest(req: Request): Promise<Response> {
     mensaje: d.mensaje,
     negocio: "Slotify",
   }).catch(() => {});
+
+  try {
+    await admin.from("avisos_cita").insert({
+      cita_id: cita.id,
+      profesional_id: cita.profesional_id,
+      mensaje: d.mensaje,
+      es_publico_cliente: true,
+      emisor: "cliente",
+    });
+  } catch {
+    // Registrar en la BD es opcional; no falla el envío del correo.
+  }
 
   registrar("contactar-profesional", "info", "contacto_enviado", {
     cita_id: citaId,

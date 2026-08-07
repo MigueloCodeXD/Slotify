@@ -52,6 +52,7 @@ export interface CitaCliente {
 export interface Aviso {
   id: string;
   mensaje: string;
+  emisor: "cliente" | "profesional";
   created_at: string;
 }
 

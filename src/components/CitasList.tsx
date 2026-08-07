@@ -102,29 +102,36 @@ export function CitasList({
             {avisos[c.id] && avisos[c.id].length > 0 && (
               <div className="mt-3 space-y-2">
                 {avisos[c.id].map((a) => (
-                  <div key={a.id} className="rounded-xl border-l-4 border-violet-400 bg-violet-400/10 px-3 py-2 text-sm text-violet-200">
+                  <div
+                    key={a.id}
+                    className={`rounded-xl px-3 py-2 text-sm ${
+                      a.emisor === "profesional"
+                        ? "rounded-bl-sm bg-violet-600/90 text-white"
+                        : "rounded-br-sm border-l-4 border-violet-400 bg-violet-400/10 text-violet-200"
+                    }`}
+                  >
                     {a.mensaje}
                   </div>
                 ))}
               </div>
             )}
 
-            {c.estado === "confirmada" && (
-              <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
+              {c.estado === "confirmada" && (
                 <Link
                   href={`/mi-cita?token=${c.token_gestion}`}
                   className="inline-block rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400/100"
                 >
                   Ver / gestionar
                 </Link>
-                <button
-                  onClick={() => setContacto({ citaId: c.id, mensaje: "", enviando: false })}
-                  className="rounded-xl border border-violet-300 px-4 py-2 text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
-                >
-                  Contactar
-                </button>
-              </div>
-            )}
+              )}
+              <button
+                onClick={() => setContacto({ citaId: c.id, mensaje: "", enviando: false })}
+                className="rounded-xl border border-violet-300 px-4 py-2 text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
+              >
+                Contactar
+              </button>
+            </div>
 
             {contacto?.citaId === c.id && (
               <div className="mt-4 rounded-xl border border-violet-400/25 bg-violet-400/5 p-4">

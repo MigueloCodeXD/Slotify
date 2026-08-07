@@ -45,6 +45,7 @@ export async function enviarAvisoRequest(req: Request): Promise<Response> {
     profesional_id: prof.id,
     mensaje: d.mensaje,
     es_publico_cliente: d.es_publico_cliente,
+    emisor: "profesional",
   });
   if (eIns) return json({ error: "No se pudo guardar el aviso." }, 500);
 

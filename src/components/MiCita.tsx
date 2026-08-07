@@ -218,7 +218,11 @@ export function MiCita() {
               {avisos[cita.id].map((a) => (
                 <div
                   key={a.id}
-                  className="rounded-xl border-l-4 border-violet-400 bg-violet-400/10 px-3 py-2 text-sm text-violet-200"
+                  className={`rounded-xl px-3 py-2 text-sm ${
+                    a.emisor === "profesional"
+                      ? "rounded-bl-sm bg-violet-600/90 text-white"
+                      : "rounded-br-sm border-l-4 border-violet-400 bg-violet-400/10 text-violet-200"
+                  }`}
                 >
                   {a.mensaje}
                 </div>

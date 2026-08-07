@@ -32,7 +32,7 @@ export async function misCitasRequest(req: Request): Promise<Response> {
     if (!cita) return json({ error: "No se encontró la cita." }, 404);
     const { data: avisos } = await admin
       .from("avisos_cita")
-      .select("id, mensaje, created_at")
+      .select("id, mensaje, emisor, created_at")
       .eq("cita_id", cita.id)
       .eq("es_publico_cliente", true)
       .order("created_at", { ascending: false });
@@ -58,11 +58,11 @@ export async function misCitasRequest(req: Request): Promise<Response> {
     .order("created_at", { ascending: false });
 
   const citaIds = (citas ?? []).map((c) => c.id);
-  let avisos: { cita_id: string; id: string; mensaje: string; created_at: string }[] = [];
+  let avisos: { cita_id: string; id: string; mensaje: string; emisor: string; created_at: string }[] = [];
   if (citaIds.length > 0) {
     const { data: a } = await admin
       .from("avisos_cita")
-      .select("cita_id, id, mensaje, created_at")
+      .select("cita_id, id, mensaje, emisor, created_at")
       .in("cita_id", citaIds)
       .eq("es_publico_cliente", true)
       .order("created_at", { ascending: false });

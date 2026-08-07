@@ -62,6 +62,10 @@ const { data: cita, error: eCita } = await admin
   const srv = Array.isArray(cita.servicio) ? (cita.servicio as { precio?: unknown }[])[0] : (cita.servicio as { precio?: unknown } | undefined);
   const precio = Number(srv?.precio ?? 0);
   const anticipoAnterior = Number(cita.anticipo ?? 0);
+  const pendiente = Math.max(0, precio - anticipoAnterior);
+  if (d.monto > pendiente) {
+    return json({ error: `El monto no puede superar el pendiente ($${pendiente.toFixed(2)}).` }, 400);
+  }
   const nuevoAnticipo = anticipoAnterior + d.monto;
   const estado = nuevoAnticipo >= precio ? "pagado" : "parcial";
 

@@ -56,7 +56,6 @@ export function Configuracion() {
   );
   const [rol, setRol] = useState<"admin" | "profesional" | null>(null);
 
-  const [invitar, setInvitar] = useState({ nombre: "", email: "", cargo: "" });
   const [nuevoServicio, setNuevoServicio] = useState({
     nombre: "",
     precio: "",
@@ -97,7 +96,6 @@ export function Configuracion() {
 
   const { notificar } = useToast();
 
-  const emailValido = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   const telefonoValido = (t: string) => /^[+\d][\d\s()-]{6,}$/.test(t);
   const nombreServicioExiste = (nombre: string, ignoreId?: string) =>
     servicios.some(
@@ -585,30 +583,6 @@ export function Configuracion() {
       await refrescarServicios();
     } catch (e) {
       notificar((e as Error).message, "error");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  async function invitarProfesional(e: React.FormEvent) {
-    e.preventDefault();
-    if (enviando) return;
-    if (invitar.nombre.trim().length < 2) {
-      notificar("El nombre del profesional es obligatorio.", "error");
-      return;
-    }
-    if (!emailValido(invitar.email.trim())) {
-      notificar("Ingresa un email válido.", "error");
-      return;
-    }
-    setEnviando(true);
-    const token = (await getTokenSesion()) ?? undefined;
-    try {
-      const res = await llamarEdge<{ mensaje: string }>("invitar-profesional", { ...invitar, cargo: invitar.cargo || null }, token);
-      setInvitar({ nombre: "", email: "", cargo: "" });
-      notificar(res.mensaje, "exito");
-    } catch (err) {
-      notificar((err as Error).message, "error");
     } finally {
       setEnviando(false);
     }
@@ -1201,50 +1175,6 @@ export function Configuracion() {
           </div>
         </Tarjeta>
         </>
-      )}
-
-      {rol === "admin" && (
-        <Tarjeta className="p-5 animate-fade-up [animation-delay:320ms]">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary-100)] text-sm">👤</span>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">
-              Invitar profesional
-            </h2>
-          </div>
-          <form onSubmit={invitarProfesional} className="grid gap-3 sm:grid-cols-3">
-            <Campo
-              label="Nombre"
-              value={invitar.nombre}
-              onChange={(e) => setInvitar({ ...invitar, nombre: e.target.value })}
-            />
-            <Campo
-              label="Email"
-              type="email"
-              value={invitar.email}
-              onChange={(e) => setInvitar({ ...invitar, email: e.target.value })}
-            />
-            <div>
-              <span className="mb-1 block text-xs font-semibold text-zinc-500">Cargo</span>
-              <select
-                value={invitar.cargo}
-                onChange={(e) => setInvitar({ ...invitar, cargo: e.target.value })}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
-              >
-                <option value="">Sin cargo</option>
-                {cargos.map((c) => (
-                  <option key={c.id} value={c.nombre}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-end">
-              <Boton type="submit" variante="primario" className="w-full" disabled={enviando}>
-                {enviando ? "Enviando…" : "Enviar invitación"}
-              </Boton>
-            </div>
-          </form>
-        </Tarjeta>
       )}
 
       {editandoServicio && (

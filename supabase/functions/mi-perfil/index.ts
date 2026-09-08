@@ -12,7 +12,19 @@ export async function miPerfilRequest(req: Request): Promise<Response> {
   const { data: prof } = await getProfesionalByUser(userId);
   if (!prof) return json({ error: "No autorizado." }, 401);
 
-  return json({ profesional: prof });
+  return json({
+    profesional: {
+      id: prof.id,
+      nombre: prof.nombre,
+      email: prof.email,
+      rol: prof.rol,
+      activo: prof.activo,
+      telefono: prof.telefono,
+      cargo: prof.cargo,
+      cedula: prof.cedula,
+      foto_url: prof.foto_url,
+    },
+  });
 }
 
 serve(async (req) => {

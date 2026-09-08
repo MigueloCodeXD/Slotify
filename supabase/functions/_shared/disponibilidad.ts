@@ -122,7 +122,7 @@ export async function consultarDisponibilidad(opts: {
 
   const { data: servicio, error: eS } = await admin
     .from("servicios")
-    .select("id, duracion_min, buffer_min, activo")
+    .select("id, duracion_min, buffer_min, activo, cargo_requerido")
     .eq("id", opts.servicioId)
     .single();
   if (eS || !servicio || !servicio.activo) throw new Error("Servicio no disponible");
@@ -143,14 +143,21 @@ export async function consultarDisponibilidad(opts: {
   }
   if (profesionalIds.length === 0) return { slots: [], ocupados: [] };
 
-  const { data: activos, error: eA } = await admin
+  const { data: profes, error: ePr } = await admin
     .from("profesionales")
-    .select("id")
+    .select("id, cargo")
     .eq("activo", true)
     .in("id", profesionalIds);
-  if (eA) throw new Error("Error leyendo profesionales");
-  const activosSet = new Set((activos ?? []).map((p) => p.id));
-  const idsActivos = profesionalIds.filter((id) => activosSet.has(id));
+  if (ePr) throw new Error("Error leyendo profesionales");
+
+  // Si el servicio exige un cargo, solo lo ofrecen profesionales con ese cargo.
+  let idsActivos = (profes ?? []).map((p) => p.id);
+  if (servicio.cargo_requerido) {
+    idsActivos = idsActivos.filter((id) => {
+      const p = (profes ?? []).find((x) => x.id === id);
+      return p?.cargo === servicio.cargo_requerido;
+    });
+  }
   if (idsActivos.length === 0) return { slots: [], ocupados: [] };
 
   const margenMs = cfg.margen_anticipacion_horas * 3_600_000;
@@ -164,7 +171,7 @@ export async function consultarDisponibilidad(opts: {
 
   const { data: disponibilidad, error: eD } = await admin
     .from("disponibilidad_profesional")
-    .select("profesional_id, dia_semana, hora_inicio, hora_fin")
+    .select("profesional_id, dia_semana, hora_inicio, hora_fin, pausa_inicio, pausa_fin")
     .in("profesional_id", idsActivos);
   if (eD) throw new Error("Error leyendo disponibilidad");
 
@@ -174,12 +181,19 @@ export async function consultarDisponibilidad(opts: {
     dia_semana: number;
     hora_inicio: string;
     hora_fin: string;
+    pausa_inicio: string | null;
+    pausa_fin: string | null;
   }[]) {
-    (periodosPorProf[d.profesional_id] ??= []).push({
-      dia: d.dia_semana,
-      inicio: hmsToMs(d.hora_inicio),
-      fin: hmsToMs(d.hora_fin),
-    });
+    const base = { dia: d.dia_semana, inicio: hmsToMs(d.hora_inicio), fin: hmsToMs(d.hora_fin) };
+    const pi = d.pausa_inicio ? hmsToMs(d.pausa_inicio) : null;
+    const pf = d.pausa_fin ? hmsToMs(d.pausa_fin) : null;
+    if (pi !== null && pf !== null && pi > base.inicio && pf < base.fin) {
+      // Se divide en dos ventanas: antes y después de la pausa.
+      (periodosPorProf[d.profesional_id] ??= []).push({ ...base, fin: pi });
+      (periodosPorProf[d.profesional_id] ??= []).push({ ...base, inicio: pf });
+    } else {
+      (periodosPorProf[d.profesional_id] ??= []).push(base);
+    }
   }
 
   const tz = await getTZ();

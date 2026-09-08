@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fraunces, Inter, IBM_Plex_Mono } from "next/font/google";
 import { ToastProvider } from "@/components/Toast";
+import { ThemeApplier } from "@/components/ThemeApplier";
 import "./globals.css";
 
 const inter = Inter({
@@ -37,6 +38,7 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <ThemeApplier />
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

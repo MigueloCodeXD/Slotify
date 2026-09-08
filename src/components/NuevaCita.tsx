@@ -108,18 +108,18 @@ export default function NuevaCita({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="glass-strong w-full max-w-lg max-h-[85vh] overflow-auto rounded-3xl p-5 shadow-2xl animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-lg max-h-[85vh] overflow-auto rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-bold text-zinc-100">Nueva cita</h3>
-            <p className="text-sm text-zinc-400">
+            <h3 className="text-lg font-bold text-zinc-900">Nueva cita</h3>
+            <p className="text-sm text-zinc-500">
               La cita quedará <b>pendiente</b> hasta que el cliente confirme por correo.
             </p>
           </div>
           <button
             onClick={onCerrar}
-            className="rounded-lg px-2 py-1 text-zinc-500 transition hover:bg-white/[0.06]"
+            className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
             aria-label="Cerrar"
           >
             ✕
@@ -136,7 +136,7 @@ export default function NuevaCita({
         ) : (
           <>
             <div className="mb-4">
-              <label className="mb-1 block text-xs font-semibold text-zinc-400">Servicio</label>
+              <label className="mb-1 block text-xs font-semibold text-zinc-500">Servicio</label>
               <div className="flex flex-wrap gap-2">
                 {servicios
                   .filter((s) => s.activo)
@@ -151,8 +151,8 @@ export default function NuevaCita({
                       }}
                       className={`rounded-xl border px-3 py-1.5 text-sm font-semibold transition ${
                         servicio?.id === s.id
-                          ? "border-violet-600 bg-violet-600 text-white"
-                          : "border-white/10 bg-white/[0.06] text-zinc-200 hover:border-violet-400"
+                          ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-[var(--primary-400)]"
                       }`}
                     >
                       {s.nombre}
@@ -170,8 +170,8 @@ export default function NuevaCita({
                       onClick={() => cargarSlots(d)}
                       className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
                         dia === d
-                          ? "border-violet-600 bg-violet-600 text-white"
-                          : "border-white/10 bg-white/[0.06] text-zinc-300 hover:border-violet-400"
+                          ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white"
+                          : "border-zinc-200 bg-white text-zinc-600 hover:border-[var(--primary-400)]"
                       }`}
                     >
                       {fmtPill(d, TZ)}
@@ -191,8 +191,8 @@ export default function NuevaCita({
                         onClick={() => setSlot(s)}
                         className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                           slot?.start === s.start
-                            ? "border-violet-600 bg-violet-600 text-white"
-                            : "border-white/10 bg-white/[0.06] text-zinc-200 hover:border-violet-400"
+                            ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white"
+                            : "border-zinc-200 bg-white text-zinc-600 hover:border-[var(--primary-400)]"
                         }`}
                       >
                         {new Intl.DateTimeFormat("es", {
@@ -204,7 +204,7 @@ export default function NuevaCita({
                     ))}
                   </div>
                 ) : (
-                  <p className="mb-4 py-4 text-center text-sm text-zinc-400">
+                  <p className="mb-4 py-4 text-center text-sm text-zinc-500">
                     {dia ? "No hay horarios disponibles ese día." : "Elige un día para ver horarios."}
                   </p>
                 )}

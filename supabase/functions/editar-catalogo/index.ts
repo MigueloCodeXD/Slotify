@@ -15,6 +15,8 @@ const schema = z.object({
   activo: z.boolean().optional(),
   eliminar: z.boolean().optional(),
   profesionales_ids: z.array(z.string().uuid()).optional(),
+  imagen_url: z.string().url().max(500).nullable().optional(),
+  cargo_requerido: z.string().max(100).nullable().optional(),
 });
 
 export async function editarCatalogoRequest(req: Request): Promise<Response> {
@@ -54,7 +56,7 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
 
   if (d.nombre === undefined && d.descripcion === undefined && d.categoria === undefined &&
       d.precio === undefined && d.duracion_min === undefined && d.buffer_min === undefined &&
-      d.activo === undefined && !d.servicio_id) {
+      d.activo === undefined && d.imagen_url === undefined && d.cargo_requerido === undefined && !d.servicio_id) {
     return json({ error: "Sin cambios." }, 400);
   }
 
@@ -66,6 +68,8 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
   if (d.duracion_min !== undefined) campos.duracion_min = d.duracion_min;
   if (d.buffer_min !== undefined) campos.buffer_min = d.buffer_min;
   if (d.activo !== undefined) campos.activo = d.activo;
+  if (d.imagen_url !== undefined) campos.imagen_url = d.imagen_url;
+  if (d.cargo_requerido !== undefined) campos.cargo_requerido = d.cargo_requerido;
 
   let servicioId = d.servicio_id ?? null;
   if (d.servicio_id) {

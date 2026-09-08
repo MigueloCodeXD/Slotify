@@ -8,6 +8,7 @@ import { enviarCorreo } from "../_shared/brevo.ts";
 const schema = z.object({
   email: z.string().email().max(255),
   nombre: z.string().min(2).max(120),
+  cargo: z.string().max(100).nullable().optional(),
 });
 
 export async function invitarRequest(req: Request): Promise<Response> {
@@ -43,7 +44,7 @@ export async function invitarRequest(req: Request): Promise<Response> {
 
   const { data: prof, error: eProf } = await admin
     .from("profesionales")
-    .insert({ nombre: d.nombre, email, rol: "profesional" })
+    .insert({ nombre: d.nombre, email, rol: "profesional", cargo: d.cargo ?? null })
     .select("id")
     .single();
   if (eProf) return json({ error: "No se pudo crear el profesional." }, 500);

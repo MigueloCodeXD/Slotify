@@ -50,31 +50,31 @@ export default function RestablecerPassword() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 left-1/4 h-72 w-72 rounded-full bg-fuchsia-500/30 blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-violet-500/25 blur-3xl" />
+        <div className="absolute -top-24 left-1/4 h-72 w-72 rounded-full bg-[var(--primary-200)]/40 blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-[var(--primary-100)]/40 blur-3xl" />
       </div>
       <Link
         href="/login"
-        className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-violet-100 transition hover:bg-white/10 hover:text-white"
+        className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
       >
         ← Volver al inicio de sesión
       </Link>
       <Tarjeta className="w-full max-w-sm p-8 animate-scale-in">
-        <h1 className="text-center text-2xl font-bold text-zinc-100">Nueva contraseña</h1>
-        <p className="mt-1 text-center text-sm text-zinc-400">
+        <h1 className="text-center text-2xl font-bold text-zinc-900">Nueva contraseña</h1>
+        <p className="mt-1 text-center text-sm text-zinc-600">
           Establece una nueva contraseña para tu cuenta
         </p>
 
         {error && (
-          <div className="mt-4 rounded-xl border border-rose-400/25 bg-rose-500/15 px-4 py-3 text-sm text-rose-200 backdrop-blur">
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
             {error}
           </div>
         )}
 
         {!lista ? (
-          <p className="mt-6 text-center text-sm text-zinc-400">
+          <p className="mt-6 text-center text-sm text-zinc-600">
             Cargando… Si este enlace ya fue usado, solicita uno nuevo.
           </p>
         ) : (
@@ -85,7 +85,6 @@ export default function RestablecerPassword() {
               placeholder="Mínimo 6 caracteres"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Campo
               label="Confirmar contraseña"
@@ -93,7 +92,6 @@ export default function RestablecerPassword() {
               placeholder="••••••••"
               value={confirmar}
               onChange={(e) => setConfirmar(e.target.value)}
-              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Boton type="submit" variante="primario" className="w-full" disabled={cargando}>
               {cargando ? <Spinner /> : "Guardar contraseña"}
@@ -101,6 +99,6 @@ export default function RestablecerPassword() {
           </form>
         )}
       </Tarjeta>
-    </div>
+    </main>
   );
 }

@@ -38,8 +38,8 @@ function Confirmar() {
       <Navbar />
       <main className="relative flex flex-1 items-center justify-center px-4 py-16">
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute left-1/4 top-1/4 h-72 w-72 rounded-full bg-fuchsia-500/25 blur-3xl" />
-          <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-violet-500/20 blur-3xl" />
+          <div className="absolute left-1/4 top-1/4 h-72 w-72 rounded-full bg-[var(--primary-500)]/15 blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-[var(--primary-300)]/15 blur-3xl" />
         </div>
         <Tarjeta className="relative w-full max-w-md p-8 text-center animate-scale-in">
           {estado === "cargando" ? (
@@ -49,10 +49,10 @@ function Confirmar() {
           ) : (
             <>
               <div className="mb-3 text-5xl">{estado === "ok" ? "🎉" : "⏳"}</div>
-              <h1 className="mb-2 text-xl font-bold text-zinc-100">
+              <h1 className="mb-2 text-xl font-bold text-zinc-900">
                 {estado === "ok" ? "¡Cita confirmada!" : "No se pudo confirmar"}
               </h1>
-              <p className="text-sm text-zinc-300">{mensaje}</p>
+              <p className="text-sm text-zinc-600">{mensaje}</p>
               <div className="mt-6">
                 <Boton variante="primario" onClick={() => (window.location.href = "/")}>
                   Volver al inicio

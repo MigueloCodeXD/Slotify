@@ -38,7 +38,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 ? "border-emerald-300/40 bg-emerald-600/95 text-white"
                 : t.tono === "error"
                   ? "border-rose-300/40 bg-rose-600/95 text-white"
-                  : "border-violet-300/40 bg-violet-700/95 text-white"
+                  : "border-zinc-800/40 bg-zinc-900/95 text-white"
             }`}
           >
             {t.mensaje}

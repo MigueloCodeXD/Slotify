@@ -11,6 +11,12 @@ const schema = z.object({
   horas_limite_cancelacion: z.number().int().min(0).optional(),
   direccion: z.string().max(500).optional().nullable(),
   descripcion: z.string().max(2000).optional().nullable(),
+  logo_url: z.string().url().max(500).optional().nullable(),
+  color_principal: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "color inválido")
+    .nullable()
+    .optional(),
 });
 
 export async function actualizarConfigRequest(req: Request): Promise<Response> {
@@ -39,6 +45,8 @@ export async function actualizarConfigRequest(req: Request): Promise<Response> {
   if (d.horas_limite_cancelacion !== undefined) campos.horas_limite_cancelacion = d.horas_limite_cancelacion;
   if (d.direccion !== undefined) campos.direccion = d.direccion;
   if (d.descripcion !== undefined) campos.descripcion = d.descripcion;
+  if (d.logo_url !== undefined) campos.logo_url = d.logo_url;
+  if (d.color_principal !== undefined) campos.color_principal = d.color_principal;
 
   const { data: fila } = await admin.from("config").select("id").limit(1).maybeSingle();
   if (fila) {

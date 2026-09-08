@@ -12,6 +12,7 @@ const schema = z.object({
   email: z.string().email().max(255).optional(),
   telefono: z.string().max(30).nullable().optional(),
   cargo: z.string().max(100).nullable().optional(),
+  foto_url: z.string().url().max(500).nullable().optional(),
   rol: z.enum(["admin", "profesional"]).optional(),
   activo: z.boolean().optional(),
   servicio_ids: z.array(z.string().uuid()).optional(),
@@ -57,6 +58,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
           email: p.email,
           telefono: p.telefono,
           cargo: p.cargo,
+          foto_url: p.foto_url ?? null,
           rol: p.rol,
           activo: p.activo,
           vinculado: Boolean(p.user_id),
@@ -77,6 +79,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
       if (d.nombre !== undefined) campos.nombre = d.nombre;
       if (d.telefono !== undefined) campos.telefono = d.telefono;
       if (d.cargo !== undefined) campos.cargo = d.cargo;
+      if (d.foto_url !== undefined) campos.foto_url = d.foto_url;
       if (d.email !== undefined) {
         const email = d.email.toLowerCase();
         if (email !== prof.email) {
@@ -151,16 +154,25 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
 
     case "asignar_servicios": {
       if (!d.id || !d.servicio_ids) return json({ error: "Faltan datos." }, 400);
-      const { data: prof } = await admin.from("profesionales").select("id").eq("id", d.id).single();
+      const { data: prof } = await admin.from("profesionales").select("id, cargo").eq("id", d.id).single();
       if (!prof) return json({ error: "No se encontró el profesional." }, 404);
+      // Un profesional solo puede ofrecer servicios cuyo cargo_requerido
+      // coincida con su cargo (o servicios sin cargo requerido).
+      const { data: servicios } = await admin
+        .from("servicios")
+        .select("id, cargo_requerido")
+        .in("id", d.servicio_ids);
+      const permitidos = (servicios ?? [])
+        .filter((s) => !s.cargo_requerido || s.cargo_requerido === prof.cargo)
+        .map((s) => s.id);
       await admin.from("profesional_servicios").delete().eq("profesional_id", d.id);
-      if (d.servicio_ids.length > 0) {
+      if (permitidos.length > 0) {
         const { error } = await admin
           .from("profesional_servicios")
-          .insert(d.servicio_ids.map((servicio_id) => ({ profesional_id: d.id, servicio_id })));
+          .insert(permitidos.map((servicio_id) => ({ profesional_id: d.id, servicio_id })));
         if (error) return json({ error: "No se pudieron asignar los servicios." }, 500);
       }
-      return json({ ok: true });
+      return json({ ok: true, asignados: permitidos.length });
     }
 
     case "reenviar_invitacion": {

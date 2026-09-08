@@ -128,15 +128,15 @@ export default function MisCitas() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-        <h1 className="mb-6 text-3xl font-bold text-white">Mis citas</h1>
+        <h1 className="mb-6 text-3xl font-bold text-zinc-900">Mis citas</h1>
 
         {error && (
-          <div className="mb-4 rounded-xl border border-rose-400/30 bg-rose-500/15 px-4 py-3 text-sm text-rose-100">
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
             {error}
           </div>
         )}
         {mensaje && (
-          <div className="mb-4 rounded-xl border border-emerald-400/30 bg-emerald-500/15 px-4 py-3 text-sm text-emerald-100">
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {mensaje}
           </div>
         )}
@@ -149,7 +149,7 @@ export default function MisCitas() {
 
         {etapa === "email" && !restaurando && (
           <Tarjeta className="mx-auto max-w-md p-6">
-            <p className="mb-4 text-sm text-zinc-400">
+            <p className="mb-4 text-sm text-zinc-600">
               Ingresa tu correo y te enviaremos un código para acceder a tus citas.
             </p>
             <div className="space-y-4">
@@ -159,7 +159,6 @@ export default function MisCitas() {
                 placeholder="tucorreo@ejemplo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="text-zinc-100 border-white/10 bg-white/[0.06] placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
               />
               <Boton
                 variante="primario"
@@ -175,7 +174,7 @@ export default function MisCitas() {
 
         {etapa === "codigo" && !restaurando && (
           <Tarjeta className="mx-auto max-w-md p-6">
-            <p className="mb-4 text-sm text-zinc-400">
+            <p className="mb-4 text-sm text-zinc-600">
               Ingresa el código de 6 dígitos que te enviamos.
             </p>
             <div className="space-y-4">
@@ -184,7 +183,7 @@ export default function MisCitas() {
                 placeholder="123456"
                 value={codigo}
                 onChange={(e) => setCodigo(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="text-center text-lg font-bold tracking-[0.5em] text-zinc-100 border-white/10 bg-white/[0.06] placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
+                className="text-center text-lg font-bold tracking-[0.5em]"
               />
               <Boton
                 variante="primario"
@@ -195,7 +194,7 @@ export default function MisCitas() {
                 {cargando ? <Spinner /> : "Ver mis citas"}
               </Boton>
               <button
-                className="w-full text-center text-xs text-violet-500 hover:underline"
+                className="w-full text-center text-xs text-zinc-500 hover:text-[var(--primary-600)] hover:underline"
                 onClick={() => setEtapa("email")}
               >
                 ¿No recibiste el código? Reintentar
@@ -208,7 +207,7 @@ export default function MisCitas() {
           <>
             {perfil && (
               <Tarjeta className="mb-6 p-6">
-                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-violet-300">
+                <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">
                   Mi perfil
                 </h2>
                 <form onSubmit={guardarPerfil} className="space-y-4">
@@ -216,21 +215,18 @@ export default function MisCitas() {
                     label="Nombre"
                     value={perfil.nombre}
                     onChange={(e) => setPerfil({ ...perfil, nombre: e.target.value })}
-                    className="text-zinc-100 border-white/10 bg-white/[0.06] focus:border-violet-400 focus:ring-violet-300"
                   />
                   <Campo
                     label="Email"
                     type="email"
                     value={perfil.email}
                     disabled
-                    className="text-zinc-100 border-white/10 bg-white/[0.06] focus:border-violet-400 focus:ring-violet-300"
                   />
                   <Campo
                     label="Teléfono"
                     placeholder="+57 300 000 0000"
                     value={perfil.telefono ?? ""}
                     onChange={(e) => setPerfil({ ...perfil, telefono: e.target.value })}
-                    className="text-zinc-100 border-white/10 bg-white/[0.06] focus:border-violet-400 focus:ring-violet-300"
                   />
                   <Boton variante="primario" disabled={guardandoPerfil || perfil.nombre.trim().length < 2}>
                     {guardandoPerfil ? <Spinner /> : "Guardar perfil"}
@@ -247,7 +243,7 @@ export default function MisCitas() {
             <div className="mt-6 text-center">
               <button
                 onClick={cambiarCorreo}
-                className="text-sm text-violet-200 hover:underline"
+                className="text-sm text-zinc-500 hover:text-[var(--primary-600)] hover:underline"
               >
                 Usar otro correo
               </button>

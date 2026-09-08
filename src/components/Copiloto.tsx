@@ -77,7 +77,7 @@ export function Copiloto({ onRecargar }: { onRecargar: () => void }) {
     return (
       <button
         onClick={() => setAbierto(true)}
-        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-2xl text-white shadow-2xl shadow-violet-900/40 transition-all duration-200 hover:scale-110 hover:rotate-6 hover:shadow-fuchsia-500/40 active:scale-95"
+        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary-600)] text-2xl text-white shadow-2xl transition-all duration-200 hover:scale-110 hover:rotate-6 hover:bg-[var(--primary-700)] active:scale-95"
         aria-label="Abrir copiloto"
       >
         ✦
@@ -86,8 +86,8 @@ export function Copiloto({ onRecargar }: { onRecargar: () => void }) {
   }
 
   return (
-    <div className="fixed right-5 bottom-5 z-50 flex h-[540px] w-[min(400px,92vw)] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0b0817]/90 shadow-2xl backdrop-blur-xl animate-scale-in">
-      <div className="flex items-center justify-between bg-gradient-to-r from-violet-600 to-fuchsia-500 px-4 py-3 text-white">
+    <div className="fixed right-5 bottom-5 z-50 flex h-[540px] w-[min(400px,92vw)] flex-col overflow-hidden rounded-3xl border border-zinc-200 bg-white/95 shadow-2xl backdrop-blur-xl animate-scale-in">
+      <div className="flex items-center justify-between bg-[var(--primary-600)] px-4 py-3 text-white">
         <div>
           <p className="font-bold">Copiloto Slotify</p>
           <p className="text-xs text-white/80">
@@ -102,9 +102,9 @@ export function Copiloto({ onRecargar }: { onRecargar: () => void }) {
         </button>
       </div>
 
-      <div ref={listaRef} className="flex-1 space-y-2 overflow-y-auto bg-black/40 p-4">
+      <div ref={listaRef} className="flex-1 space-y-2 overflow-y-auto bg-zinc-50 p-4">
         {mensajes.length === 0 && (
-          <div className="rounded-xl bg-violet-400/10 p-3 text-sm text-violet-200">
+          <div className="rounded-xl bg-[var(--primary-50)] p-3 text-sm text-[var(--primary-700)]">
             ¡Hola! Soy tu copiloto. Pídeme gestionar tu agenda con lenguaje
             natural: ver citas, crear bloqueos, cancelar o avisar a un cliente.
           </div>
@@ -114,28 +114,28 @@ export function Copiloto({ onRecargar }: { onRecargar: () => void }) {
             key={i}
             className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${
               m.role === "user"
-                ? "ml-auto bg-violet-600 text-white"
-                : "bg-white/10 text-zinc-100"
+                ? "ml-auto bg-[var(--primary-600)] text-white"
+                : "bg-zinc-100 text-zinc-700"
             }`}
           >
             {m.text}
           </div>
         ))}
         {cargando && (
-          <div className="w-fit rounded-xl bg-white/10 px-3 py-2 text-sm text-zinc-400 shadow-sm">
+          <div className="w-fit rounded-xl bg-zinc-100 px-3 py-2 text-sm text-zinc-500 shadow-sm">
             Pensando…
           </div>
         )}
         <div ref={finRef} />
       </div>
 
-      <div className="flex gap-2 border-t border-white/10 bg-white/[0.04] p-3">
+      <div className="flex gap-2 border-t border-zinc-200 bg-white p-3">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviar()}
           placeholder="Escribe un comando…"
-          className="flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+          className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
         />
         <Boton variante="primario" onClick={enviar} disabled={cargando || !input.trim()}>
           <span className="group-hover:translate-x-0.5 transition-transform">→</span> Enviar

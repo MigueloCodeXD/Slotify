@@ -185,7 +185,7 @@ export function MiCita() {
       <div className="flex min-h-screen flex-col">
         <Navbar />
         <main className="mx-auto w-full max-w-lg px-4 py-16">
-          <Tarjeta className="p-6 text-center text-sm text-zinc-400">
+          <Tarjeta className="p-6 text-center text-sm text-zinc-500">
             No encontramos tu cita. Revisa el enlace de confirmación.
           </Tarjeta>
         </main>
@@ -202,9 +202,9 @@ export function MiCita() {
         <Tarjeta className="p-6">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-zinc-100">{titulo}</h1>
-              <p className="mt-1 text-sm text-zinc-400">{fmt(r.start)}</p>
-              <p className="text-xs text-zinc-500">
+              <h1 className="text-2xl font-bold text-zinc-900">{titulo}</h1>
+              <p className="mt-1 text-sm text-zinc-500">{fmt(r.start)}</p>
+              <p className="text-xs text-zinc-400">
                 {cita.profesional?.nombre ?? ""} · {cita.servicio?.duracion_min} min
               </p>
             </div>
@@ -212,24 +212,24 @@ export function MiCita() {
           </div>
 
           {(cita.estado === "confirmada" || cita.estado === "completada") && (
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs text-zinc-300">
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs text-zinc-600">
               <span>
                 Total:{" "}
-                <span className="font-mono font-semibold text-white">
+                <span className="font-mono font-semibold text-zinc-900">
                   {fmtMoneda(Number(cita.precio_servicio ?? cita.servicio?.precio ?? 0))}
                 </span>
               </span>
               {Number(cita.anticipo ?? 0) > 0 && (
                 <span>
                   Anticipo:{" "}
-                  <span className="font-mono font-semibold text-amber-200">
+                  <span className="font-mono font-semibold text-amber-700">
                     {fmtMoneda(cita.anticipo ?? 0)}
                   </span>
                 </span>
               )}
               <span className="capitalize">
                 Pago:{" "}
-                <span className="font-semibold text-emerald-200">{cita.estado_pago ?? "pendiente"}</span>
+                <span className="font-semibold text-emerald-700">{cita.estado_pago ?? "pendiente"}</span>
               </span>
             </div>
           )}
@@ -241,8 +241,8 @@ export function MiCita() {
                   key={a.id}
                   className={`rounded-xl px-3 py-2 text-sm ${
                     a.emisor === "profesional"
-                      ? "rounded-bl-sm bg-violet-600/90 text-white"
-                      : "rounded-br-sm border-l-4 border-violet-400 bg-violet-400/10 text-violet-200"
+                      ? "rounded-bl-sm bg-[var(--primary-600)] text-white"
+                      : "rounded-br-sm border border-zinc-200 bg-zinc-50 text-zinc-600"
                   }`}
                 >
                   {a.mensaje}
@@ -251,15 +251,15 @@ export function MiCita() {
             </div>
           )}
 
-          <div className="mt-4 rounded-xl border border-violet-400/25 bg-violet-400/5 p-4">
-            <p className="mb-2 text-xs font-semibold text-violet-200">Mensaje al profesional</p>
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+            <p className="mb-2 text-xs font-semibold text-[var(--primary-700)]">Mensaje al profesional</p>
             <textarea
               value={mensaje}
               onChange={(e) => setMensaje(e.target.value)}
               rows={3}
               maxLength={500}
               placeholder="Escribe tu mensaje para el profesional…"
-              className="w-full rounded-xl border border-white/10 bg-white/[0.06] p-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:outline-none"
+              className="w-full rounded-xl border border-zinc-200 bg-white p-3 text-sm text-zinc-900 placeholder-zinc-400 focus:border-[var(--primary-400)] focus:outline-none"
             />
             <div className="mt-3 flex gap-2">
               <Boton
@@ -310,14 +310,14 @@ export function MiCita() {
                 })}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl bg-violet-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-violet-400/100"
+                className="rounded-xl bg-[var(--primary-600)] px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-[var(--primary-700)]"
               >
                 Google Calendar
               </a>
               <a
                 href={icsLink({ start: r.start, end: r.end, titulo, uid: cita.id })}
                 download="cita.ics"
-                className="rounded-xl border border-violet-300 px-4 py-2.5 text-center text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-center text-sm font-semibold text-[var(--primary-700)] transition hover:bg-[var(--primary-50)]"
               >
                 Descargar .ics
               </a>
@@ -348,7 +348,7 @@ export function MiCita() {
 
           {cita.estado === "confirmada" && cambio === "reprogramar" && (
             <div className="mt-6">
-              <p className="mb-3 text-sm font-semibold text-zinc-200">
+              <p className="mb-3 text-sm font-semibold text-zinc-900">
                 Elige un nuevo horario
               </p>
               <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
@@ -356,7 +356,7 @@ export function MiCita() {
                   <button
                     key={d}
                     onClick={() => cargarSlots(d)}
-                    className="shrink-0 rounded-xl border border-violet-400/25 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-violet-300 transition hover:bg-violet-400/10"
+                    className="shrink-0 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-600 transition hover:bg-[var(--primary-50)]"
                   >
                     {fmtPill(d, TZ)}
                   </button>
@@ -372,8 +372,8 @@ export function MiCita() {
                         onClick={() => setSlot(s)}
                         className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                           slot?.start === s.start
-                            ? "border-violet-600 bg-violet-600 text-white"
-                            : "border-violet-400/30 text-violet-300 hover:bg-violet-400/10"
+                            ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white"
+                            : "border-zinc-200 text-zinc-600 hover:bg-[var(--primary-50)]"
                         }`}
                       >
                         {new Intl.DateTimeFormat("es", {
@@ -395,7 +395,7 @@ export function MiCita() {
                 </>
               )}
               {!cargandoSlots && slots.length === 0 && (
-                <p className="text-sm text-zinc-400">
+                <p className="text-sm text-zinc-500">
                   No hay horarios disponibles ese día. Prueba con otro.
                 </p>
               )}

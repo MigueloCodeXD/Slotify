@@ -5,11 +5,15 @@ export interface Config {
   horas_limite_cancelacion: number;
   direccion: string | null;
   descripcion: string | null;
+  logo_url?: string | null;
+  color_principal?: string | null;
 }
 
 export interface ProfesionalPublico {
   id: string;
   nombre: string;
+  foto_url?: string | null;
+  cargo?: string | null;
 }
 
 export interface ServicioPublico {
@@ -22,6 +26,8 @@ export interface ServicioPublico {
   buffer_min: number;
   activo: boolean;
   profesionales_ids: string[];
+  imagen_url?: string | null;
+  cargo_requerido?: string | null;
 }
 
 export interface Slot {
@@ -65,6 +71,7 @@ export interface Profesional {
   rol: "admin" | "profesional";
   activo: boolean;
   cedula?: string | null;
+  foto_url?: string | null;
 }
 
 export interface Servicio {
@@ -77,6 +84,8 @@ export interface Servicio {
   buffer_min: number;
   activo: boolean;
   profesionales_ids: string[];
+  imagen_url?: string | null;
+  cargo_requerido?: string | null;
 }
 
 export interface CitaProfesional {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Boton, ChipEstado } from "@/components/ui";
+import { Boton, ChipEstado, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { TZ } from "@/lib/zonaHoraria";
 import type { CitaCliente, Aviso } from "@/types";
@@ -72,7 +72,7 @@ export function CitasList({
 
   if (citas.length === 0) {
     return (
-      <p className="py-12 text-center text-violet-100">
+      <p className="py-12 text-center text-zinc-500">
         Todavía no tienes citas agendadas.
       </p>
     );
@@ -89,14 +89,14 @@ export function CitasList({
       {ordenadas.map((c) => {
         const r = rango(c);
         return (
-          <div key={c.id} className="glass glass-hover rounded-2xl p-5 text-zinc-100 shadow-lg">
+          <Tarjeta key={c.id} className="p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-zinc-100">
+                <p className="text-sm font-bold text-zinc-900">
                   {c.servicio?.nombre ?? "Servicio"}
                 </p>
-                <p className="text-sm text-zinc-400 capitalize">{fmt(r.start)}</p>
-                <p className="text-xs text-zinc-500">
+                <p className="text-sm text-zinc-500 capitalize">{fmt(r.start)}</p>
+                <p className="text-xs text-zinc-400">
                   {c.profesional?.nombre ?? ""} · {c.servicio?.duracion_min} min
                 </p>
               </div>
@@ -110,8 +110,8 @@ export function CitasList({
                     key={a.id}
                     className={`rounded-xl px-3 py-2 text-sm ${
                       a.emisor === "profesional"
-                        ? "rounded-bl-sm bg-violet-600/90 text-white"
-                        : "rounded-br-sm border-l-4 border-violet-400 bg-violet-400/10 text-violet-200"
+                        ? "rounded-bl-sm bg-[var(--primary-600)] text-white"
+                        : "rounded-br-sm border border-zinc-200 bg-zinc-50 text-zinc-600"
                     }`}
                   >
                     {a.mensaje}
@@ -124,30 +124,30 @@ export function CitasList({
               {c.estado === "confirmada" && (
                 <Link
                   href={`/mi-cita?token=${c.token_gestion}`}
-                  className="inline-block rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400/100"
+                  className="inline-block rounded-xl bg-[var(--primary-600)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--primary-700)]"
                 >
                   Ver / gestionar
                 </Link>
               )}
               <button
                 onClick={() => setContacto({ citaId: c.id, mensaje: "", enviando: false })}
-                className="rounded-xl border border-violet-300 px-4 py-2 text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-600 transition hover:border-[var(--primary-400)]"
               >
                 Contactar
               </button>
             </div>
 
             {contacto?.citaId === c.id && (
-              <div className="mt-4 rounded-xl border border-violet-400/25 bg-violet-400/5 p-4">
+              <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4">
                 <textarea
                   value={contacto.mensaje}
                   onChange={(e) => setContacto({ ...contacto, mensaje: e.target.value })}
                   rows={3}
                   maxLength={500}
                   placeholder="Escribe tu mensaje para el profesional…"
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.06] p-3 text-sm text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-200 bg-white p-3 text-sm text-zinc-900 placeholder-zinc-400 focus:border-[var(--primary-400)] focus:outline-none"
                 />
-                {errorContacto && <p className="mt-2 text-xs text-rose-300">{errorContacto}</p>}
+                {errorContacto && <p className="mt-2 text-xs text-rose-600">{errorContacto}</p>}
                 <div className="mt-3 flex gap-2">
                   <Boton
                     variante="primario"
@@ -162,7 +162,7 @@ export function CitasList({
                 </div>
               </div>
             )}
-          </div>
+          </Tarjeta>
         );
       })}
     </div>

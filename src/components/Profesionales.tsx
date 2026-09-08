@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
@@ -15,6 +16,7 @@ interface ProfGestion {
   email: string;
   telefono: string | null;
   cargo: string | null;
+  foto_url: string | null;
   rol: "admin" | "profesional";
   activo: boolean;
   vinculado: boolean;
@@ -195,12 +197,12 @@ export function Profesionales() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-white animate-fade-up">Profesionales</h1>
+      <h1 className="text-2xl font-bold text-zinc-900 animate-fade-up">Profesionales</h1>
 
       <Tarjeta className="p-5 animate-fade-up">
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-400/15 text-sm">➕</span>
-          <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Invitar profesional</h2>
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary-100)] text-sm">➕</span>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Invitar profesional</h2>
         </div>
         <form onSubmit={invitarProfesional} className="grid gap-3 sm:grid-cols-3">
           <Campo
@@ -227,22 +229,32 @@ export function Profesionales() {
           <Tarjeta key={p.id} className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/15 text-lg font-bold text-violet-200">
-                  {p.nombre.charAt(0).toUpperCase()}
-                </span>
+                {p.foto_url ? (
+                  <Image
+                    src={p.foto_url}
+                    alt={p.nombre}
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--primary-100)] text-lg font-bold text-[var(--primary-700)]">
+                    {p.nombre.charAt(0).toUpperCase()}
+                  </span>
+                )}
                 <div>
-                  <p className="font-semibold text-white">
+                  <p className="font-semibold text-zinc-900">
                     {p.nombre} {p.yo && <span className="text-xs text-zinc-500">(tú)</span>}
                   </p>
-                  <p className="text-xs text-zinc-400">{p.email}</p>
-                  {p.cargo && <p className="text-xs font-medium text-violet-300">{p.cargo}</p>}
+                  <p className="text-xs text-zinc-500">{p.email}</p>
+                  {p.cargo && <p className="text-xs font-medium text-[var(--primary-700)]">{p.cargo}</p>}
                 </div>
               </div>
               <span
-                className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase backdrop-blur ${
+                className={`rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase ${
                   p.rol === "admin"
-                    ? "border-amber-300/30 bg-amber-400/15 text-amber-200"
-                    : "border-violet-300/30 bg-violet-400/10 text-violet-200"
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-[var(--primary-200)] bg-[var(--primary-50)] text-[var(--primary-700)]"
                 }`}
               >
                 {p.rol === "admin" ? "Admin" : "Profesional"}
@@ -251,24 +263,24 @@ export function Profesionales() {
 
             <div className="mt-4 flex flex-wrap gap-1.5">
               {!p.activo ? (
-                <span className="rounded-full border border-rose-300/30 bg-rose-400/10 px-2 py-0.5 text-[11px] font-semibold text-rose-300">
+                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
                   Inactivo
                 </span>
               ) : !p.vinculado ? (
-                <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                   Invitación pendiente
                 </span>
               ) : (
-                <span className="rounded-full border border-teal-300/30 bg-teal-400/10 px-2 py-0.5 text-[11px] font-semibold text-teal-300">
+                <span className="rounded-full border border-teal-200 bg-teal-50 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
                   Vinculado
                 </span>
               )}
               {p.vinculado && !p.email_confirmado && (
-                <span className="rounded-full border border-amber-300/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                   Email sin confirmar
                 </span>
               )}
-              <span className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-zinc-300">
+              <span className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-zinc-600">
                 {p.servicios} servicios
               </span>
             </div>
@@ -305,29 +317,29 @@ export function Profesionales() {
 
       {editando && (
         <Modal onCerrar={() => setEditando(null)}>
-          <h3 className="font-display text-lg font-semibold text-white">Editar profesional</h3>
+          <h3 className="font-display text-lg font-semibold text-zinc-900">Editar profesional</h3>
           <form onSubmit={guardarEdicion} className="mt-4 grid gap-3">
             <Campo label="Nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
             <Campo label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <Campo label="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
             <Campo label="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
             <div>
-              <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-violet-300/80">Rol</span>
+              <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500">Rol</span>
               <select
                 value={form.rol}
                 onChange={(e) => setForm({ ...form, rol: e.target.value })}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none"
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
               >
                 <option value="profesional">Profesional</option>
                 <option value="admin">Administrador</option>
               </select>
             </div>
-            <label className="flex items-center gap-2 text-sm text-zinc-200">
+            <label className="flex items-center gap-2 text-sm text-zinc-700">
               <input
                 type="checkbox"
                 checked={form.activo}
                 onChange={(e) => setForm({ ...form, activo: e.target.checked })}
-                className="h-4 w-4 accent-violet-500"
+                className="h-4 w-4 accent-[var(--primary-600)]"
               />
               Activo (recibe nuevas citas)
             </label>
@@ -345,11 +357,11 @@ export function Profesionales() {
 
       {asignando && (
         <Modal onCerrar={() => setAsignando(null)}>
-          <h3 className="font-display text-lg font-semibold text-white">
+          <h3 className="font-display text-lg font-semibold text-zinc-900">
             Servicios de {asignando.nombre}
           </h3>
           {servicios.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-400">No hay servicios en el catálogo.</p>
+            <p className="mt-3 text-sm text-zinc-500">No hay servicios en el catálogo.</p>
           ) : (
             <div className="mt-4 flex max-h-[40vh] flex-col gap-2 overflow-y-auto">
               {servicios.map((s) => (
@@ -358,12 +370,12 @@ export function Profesionales() {
                   onClick={() => toggleServicio(s.id)}
                   className={`flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm font-semibold transition ${
                     selServicios.has(s.id)
-                      ? "border-violet-500 bg-violet-500/25 text-white"
-                      : "border-white/10 bg-white/[0.05] text-zinc-300 hover:border-violet-400/50"
+                      ? "border-[var(--primary-600)] bg-[var(--primary-50)] text-[var(--primary-700)]"
+                      : "border-zinc-200 bg-white text-zinc-600 hover:border-[var(--primary-400)]"
                   }`}
                 >
                   <span>{s.nombre}</span>
-                  <span className="text-xs font-normal text-zinc-400">
+                  <span className="text-xs font-normal text-zinc-500">
                     {s.duracion_min} min · ${s.precio}
                   </span>
                 </button>
@@ -386,11 +398,11 @@ export function Profesionales() {
 
 function Modal({ children, onCerrar }: { children: React.ReactNode; onCerrar: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-900 shadow-2xl animate-scale-in">
         <button
           onClick={onCerrar}
-          className="float-right rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+          className="float-right rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
           aria-label="Cerrar"
         >
           ✕

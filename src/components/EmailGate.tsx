@@ -47,12 +47,12 @@ export function EmailGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <Tarjeta className="w-full max-w-sm p-8 text-center">
-          <h1 className="text-2xl font-bold text-zinc-100">Confirmá tu nuevo email</h1>
-          <p className="mt-3 text-sm text-zinc-400">
+          <h1 className="text-2xl font-bold text-zinc-900">Confirmá tu nuevo email</h1>
+          <p className="mt-3 text-sm text-zinc-600">
             Tu dirección de correo se actualizó. Para seguir operando, confirmalo desde el
             enlace que te enviamos a tu nuevo email.
           </p>
-          <p className="mt-4 rounded-xl border border-amber-400/25 bg-amber-500/10 px-4 py-2 text-sm text-amber-200">
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-700">
             {pendienteMsg}
           </p>
           <Boton

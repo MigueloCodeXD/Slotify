@@ -98,42 +98,55 @@ export function ChatIA({
 
   return (
     <div
-      className={`flex flex-col rounded-2xl border border-white/10 bg-white/[0.06] backdrop-blur-xl ${clase ?? ""}`}
+      className={`flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xl shadow-zinc-200/60 ${clase ?? ""}`}
     >
-      <div className="flex items-center justify-between rounded-t-2xl bg-gradient-to-r from-violet-600 to-fuchsia-500 px-3 py-2 text-white">
+      <div className="flex items-center justify-between bg-[var(--primary-600)] px-3 py-2 text-white">
         <p className="text-sm font-bold">{titulo ?? "Copiloto Slotify"}</p>
-        <span className="text-xs text-white/80">✦ IA</span>
+        <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">✦ IA</span>
       </div>
 
-      <div ref={listaRef} className="flex max-h-64 min-h-28 flex-1 flex-col gap-2 overflow-y-auto bg-black/20 p-3">
+      <div ref={listaRef} className="flex max-h-64 min-h-28 flex-1 flex-col gap-2 overflow-y-auto bg-zinc-50 p-3">
         {mensajes.length === 0 && (
-          <div className="rounded-xl bg-violet-400/10 p-2.5 text-xs text-violet-200">{pista}</div>
-        )}
-        {mensajes.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-2.5 py-1.5 text-sm ${
-              m.role === "user" ? "ml-auto bg-violet-600 text-white" : "bg-white/10 text-zinc-100"
-            }`}
-          >
-            {m.text}
+          <div className="max-w-[90%] rounded-2xl rounded-tl-sm bg-white px-3 py-2 text-xs text-zinc-600 shadow-sm">
+            {pista}
           </div>
-        ))}
+        )}
+        {mensajes.map((m, i) =>
+          m.role === "user" ? (
+            <div
+              key={i}
+              className="max-w-[85%] self-end whitespace-pre-wrap rounded-2xl rounded-br-sm bg-[var(--primary-600)] px-3 py-2 text-sm text-white shadow-sm"
+            >
+              {m.text}
+            </div>
+          ) : (
+            <div key={i} className="flex items-end gap-1.5 self-start">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--primary-100)] text-[10px]">
+                ✦
+              </span>
+              <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm">
+                {m.text}
+              </div>
+            </div>
+          )
+        )}
         {cargando && (
-          <div className="w-fit rounded-xl bg-white/10 px-2.5 py-1.5 text-sm text-zinc-400 shadow-sm">
-            Pensando…
+          <div className="flex items-center gap-1.5 self-start px-1 py-2">
+            <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--primary-400)] [animation-delay:0ms]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--primary-400)] [animation-delay:150ms]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-[var(--primary-400)] [animation-delay:300ms]" />
           </div>
         )}
         <div ref={finRef} />
       </div>
 
-      <div className="flex gap-2 border-t border-white/10 bg-white/[0.04] p-2.5">
+      <div className="flex gap-2 border-t border-zinc-200 bg-white p-2.5">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && enviar()}
           placeholder="Escribe un mensaje…"
-          className="flex-1 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-200"
+          className="flex-1 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
         />
         <Boton variante="primario" onClick={enviar} disabled={cargando || !input.trim()}>
           ↑

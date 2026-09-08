@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
 import { Navbar } from "@/components/Navbar";
 import { configPublica, profesionalesPublicos, serviciosPublicos } from "@/lib/supabaseClient";
@@ -11,7 +12,7 @@ import { TZ, actualizarTZ } from "@/lib/zonaHoraria";
 import { useToast } from "@/components/Toast";
 import type { Config, ProfesionalPublico, ServicioPublico } from "@/types";
 
-type Paso = "servicio" | "profesional" | "horario" | "datos" | "confirmacion";
+type Paso = "servicio" | "horario" | "datos" | "confirmacion";
 
 interface Slot {
   profesional_id: string;
@@ -90,10 +91,7 @@ export function Agendar() {
         setProfesionales((p.data as ProfesionalPublico[]) ?? []);
         if (servicioPreseleccionado) {
           const found = sv.find((x) => x.id === servicioPreseleccionado);
-          if (found) {
-            setServicio(found);
-            setPaso("profesional");
-          }
+          if (found) setServicio(found);
         }
       }
     );
@@ -201,8 +199,7 @@ export function Agendar() {
   }
 
   const steps: { key: Paso; label: string }[] = [
-    { key: "servicio", label: "Servicio" },
-    { key: "profesional", label: "Profesional" },
+    { key: "servicio", label: "Servicio y profesional" },
     { key: "horario", label: "Horario" },
     { key: "datos", label: "Tus datos" },
   ];
@@ -214,125 +211,148 @@ export function Agendar() {
     <div className="flex min-h-screen flex-col">
       <Navbar />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-10">
-        <div className="mb-6 flex items-center gap-2">
+        <div className="mb-6 flex flex-wrap items-center gap-2">
           {steps.map((s, i) => (
             <div key={s.key} className="flex items-center gap-2">
               <div
                 className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-                  paso === s.key
-                    ? "bg-white text-violet-300"
-                    : "bg-white/15 text-white"
+                  paso === s.key ? "bg-[var(--primary-600)] text-white" : "bg-zinc-100 text-zinc-500"
                 }`}
               >
                 {i + 1}
               </div>
               <span
                 className={`text-xs font-medium ${
-                  paso === s.key ? "text-white" : "text-violet-200"
+                  paso === s.key ? "text-zinc-900" : "text-zinc-400"
                 }`}
               >
                 {s.label}
               </span>
-              {i < steps.length - 1 && <span className="text-white/30">·</span>}
+              {i < steps.length - 1 && <span className="text-zinc-300">·</span>}
             </div>
           ))}
         </div>
 
-        {paso === "servicio" && (
-          <section className="grid gap-4 sm:grid-cols-2">
-            {servicios.map((s) => (
-              <Tarjeta key={s.id} className="p-5">
-                <h3 className="font-bold text-zinc-100">{s.nombre}</h3>
-                <p className="mt-1 text-sm text-zinc-400">
-                  {s.duracion_min} min · ${s.precio}
-                </p>
-                <div className="mt-4">
-                  <Boton
-                    variante="primario"
-                    onClick={() => {
-                      setServicio(s);
-                      setPaso("profesional");
-                    }}
-                  >
-                    Elegir
-                  </Boton>
-                </div>
-              </Tarjeta>
-            ))}
+        {paso === "servicio" && !servicio && (
+          <section>
+            <h2 className="mb-4 text-xl font-bold text-zinc-900">Elige tu servicio</h2>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {servicios.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setServicio(s)}
+                  className="overflow-hidden rounded-2xl border border-zinc-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--primary-300)] hover:shadow-md"
+                >
+                  {s.imagen_url && (
+                    <div className="relative h-32 w-full bg-zinc-100">
+                      <Image src={s.imagen_url} alt={s.nombre} fill className="object-cover" />
+                    </div>
+                  )}
+                  <div className="flex items-start justify-between gap-3 p-4">
+                    <div>
+                      <h3 className="font-bold text-zinc-900">{s.nombre}</h3>
+                      {s.cargo_requerido && (
+                        <p className="text-xs font-semibold text-[var(--primary-600)]">
+                          Requiere {s.cargo_requerido}
+                        </p>
+                      )}
+                      <p className="mt-1 text-sm text-zinc-500">
+                        {s.duracion_min} min · ${s.precio}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-[var(--primary-50)] px-2.5 py-1 text-xs font-bold text-[var(--primary-700)]">
+                      Elegir
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
           </section>
         )}
 
-        {paso === "profesional" && servicio && (
+        {paso === "servicio" && servicio && (
           <section className="space-y-3">
-            <Boton variante="secundario" onClick={() => setPaso("servicio")}>
-              ← Volver
-            </Boton>
-            <Tarjeta className="p-4">
-              <button
-                className="flex w-full items-center gap-3 text-left"
-                onClick={() => {
-                  setProfesionalId(null);
-                  setPaso("horario");
-                }}
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-300">
-                  ✨
-                </span>
-                <div>
-                  <p className="font-semibold text-zinc-100">
-                    Cualquier profesional disponible
-                  </p>
-                  <p className="text-sm text-zinc-400">
-                    Asignamos el primero con disponibilidad
-                  </p>
-                </div>
-              </button>
-            </Tarjeta>
-            {profesionalesDelServicio.map((p) => (
-              <Tarjeta key={p.id} className="p-4">
+            <div className="flex items-center justify-between gap-3">
+              <BotónVolverServicio onClick={() => setServicio(null)} />
+              <div className="flex items-center gap-2 rounded-xl bg-[var(--primary-50)] px-3 py-2 text-sm font-semibold text-[var(--primary-700)]">
+                {servicio.nombre} · {servicio.duracion_min} min · ${servicio.precio}
+              </div>
+            </div>
+            <h2 className="text-lg font-bold text-zinc-900">
+              Elige quién te atiende (opcional)
+            </h2>
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--primary-50)] text-lg">
+                ✨
+              </span>
+              <span className="text-sm text-zinc-500">
+                No importa quién · asignamos el primero disponible
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {profesionalesDelServicio.map((p) => (
                 <button
-                  className="flex w-full items-center gap-3 text-left"
+                  key={p.id}
                   onClick={() => {
                     setProfesionalId(p.id);
                     setPaso("horario");
                   }}
+                  className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--primary-300)]"
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-violet-200 text-sm font-bold text-violet-300">
-                    {p.nombre.charAt(0).toUpperCase()}
-                  </span>
+                  {p.foto_url ? (
+                    <Image
+                      src={p.foto_url}
+                      alt={p.nombre}
+                      width={44}
+                      height={44}
+                      className="h-11 w-11 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--primary-600)] text-sm font-bold text-white">
+                      {p.nombre.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                   <div>
-                    <p className="font-semibold text-zinc-100">{p.nombre}</p>
-                    <p className="text-sm text-zinc-400">
-                      Profesional de {servicio.nombre}
-                    </p>
+                    <p className="font-semibold text-zinc-900">{p.nombre}</p>
+                    <p className="text-xs text-zinc-400">{p.cargo || "Profesional"}</p>
                   </div>
                 </button>
-              </Tarjeta>
-            ))}
+              ))}
+            </div>
+            <Boton
+              variante="primario"
+              onClick={() => {
+                setProfesionalId(null);
+                setPaso("horario");
+              }}
+              className="w-full sm:w-auto"
+            >
+              Continuar →
+            </Boton>
           </section>
         )}
 
         {paso === "horario" && servicio && (
           <section>
-            <Boton variante="secundario" onClick={() => setPaso("profesional")}>
+            <Boton variante="secundario" onClick={() => setPaso("servicio")}>
               ← Volver
             </Boton>
-            <h2 className="mb-3 mt-4 text-lg font-bold text-white">
+            <h2 className="mb-3 mt-4 text-lg font-bold text-zinc-900">
               Elige el día
             </h2>
-            <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+            <div className="mb-5 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
               <div className="mb-2 flex items-center justify-between">
                 <button
                   onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white transition hover:bg-white/10"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50"
                   aria-label="Mes anterior"
                 >
                   ‹
                 </button>
-                <span className="text-sm font-bold capitalize text-white">{etiquetaMes}</span>
+                <span className="text-sm font-bold capitalize text-zinc-900">{etiquetaMes}</span>
                 <button
                   onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-white transition hover:bg-white/10"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50"
                   aria-label="Mes siguiente"
                 >
                   ›
@@ -340,7 +360,7 @@ export function Agendar() {
               </div>
               <div className="grid grid-cols-7 gap-1 text-center">
                 {DIAS_SEMANA.map((d) => (
-                  <span key={d} className="pb-1 text-[11px] font-semibold uppercase text-zinc-500">
+                  <span key={d} className="pb-1 text-[11px] font-semibold uppercase text-zinc-400">
                     {d}
                   </span>
                 ))}
@@ -354,10 +374,10 @@ export function Agendar() {
                       onClick={() => cargarSlots(c.iso)}
                       className={`aspect-square rounded-lg text-sm font-semibold transition ${
                         fecha === c.iso
-                          ? "bg-white text-violet-300"
+                          ? "bg-[var(--primary-600)] text-white shadow-sm"
                           : c.pasado
-                            ? "cursor-not-allowed bg-white/[0.02] text-white/25"
-                            : "bg-white/10 text-white hover:bg-white/20"
+                            ? "cursor-not-allowed text-zinc-200"
+                            : "text-zinc-700 hover:bg-[var(--primary-50)]"
                       }`}
                     >
                       {c.num}
@@ -375,8 +395,8 @@ export function Agendar() {
 
             {!cargandoSlots && horarios.length > 0 && (
               <>
-                <h3 className="mb-2 text-sm font-semibold text-violet-100">
-                  Horarios del dia
+                <h3 className="mb-2 text-sm font-semibold text-zinc-700">
+                  Horarios del día
                 </h3>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {horarios.map((s) => {
@@ -389,10 +409,10 @@ export function Agendar() {
                         onClick={() => setSlot(s)}
                         className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                           slot?.start === s.start
-                            ? "border-white bg-white text-violet-300"
+                            ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white shadow-sm"
                             : ocupado
-                              ? "cursor-not-allowed border-white/10 bg-white/5 text-white/40 line-through decoration-rose-400/60"
-                              : "border-white/20 bg-white/10 text-white hover:bg-white/20"
+                              ? "cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-300 line-through decoration-rose-300/60"
+                              : "border-zinc-200 bg-white text-zinc-700 hover:bg-[var(--primary-50)]"
                         }`}
                       >
                         {fmtHora(s.start)}
@@ -415,7 +435,7 @@ export function Agendar() {
             )}
 
             {!cargandoSlots && fecha && horarios.length === 0 && (
-              <p className="py-8 text-center text-violet-100">
+              <p className="py-8 text-center text-zinc-500">
                 No hay horarios disponibles para este día.
               </p>
             )}
@@ -428,7 +448,7 @@ export function Agendar() {
               ← Volver
             </Boton>
             <Tarjeta className="mx-auto mt-4 w-full max-w-lg p-6">
-              <div className="mb-4 rounded-xl bg-violet-400/10 px-4 py-3 text-sm text-violet-200">
+              <div className="mb-4 rounded-xl bg-[var(--primary-50)] px-4 py-3 text-sm font-medium text-[var(--primary-800)]">
                 {servicio.nombre} · {fmtDia(slot.start)} a las {fmtHora(slot.start)}
               </div>
               <div className="space-y-4">
@@ -439,7 +459,7 @@ export function Agendar() {
                     onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
                   />
                   {errores.nombre && (
-                    <p className="text-sm text-rose-300">{errores.nombre}</p>
+                    <p className="text-sm text-rose-600">{errores.nombre}</p>
                   )}
                   <Campo
                     label="Email"
@@ -449,7 +469,7 @@ export function Agendar() {
                     onChange={(e) => setDatos({ ...datos, email: e.target.value })}
                   />
                   {errores.email && (
-                    <p className="text-sm text-rose-300">{errores.email}</p>
+                    <p className="text-sm text-rose-600">{errores.email}</p>
                   )}
                   <Campo
                     label="Teléfono (opcional)"
@@ -458,7 +478,7 @@ export function Agendar() {
                     onChange={(e) => setDatos({ ...datos, telefono: e.target.value })}
                   />
                   {errores.telefono && (
-                    <p className="text-sm text-rose-300">{errores.telefono}</p>
+                    <p className="text-sm text-rose-600">{errores.telefono}</p>
                   )}
                 <input
                   type="text"
@@ -484,14 +504,14 @@ export function Agendar() {
 
         {paso === "confirmacion" && citaFinal && (
           <Tarjeta className="mx-auto w-full max-w-lg p-8 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-2xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-2xl">
               ✓
             </div>
-            <h2 className="text-2xl font-bold text-zinc-100">¡Cita confirmada!</h2>
-            <p className="mt-2 text-zinc-400">
+            <h2 className="text-2xl font-bold text-zinc-900">¡Cita confirmada!</h2>
+            <p className="mt-2 text-zinc-500">
               Te enviamos un correo con el resumen y un enlace para gestionarla.
             </p>
-            <div className="mx-auto mt-6 max-w-sm rounded-xl bg-violet-400/10 px-5 py-4 text-left text-sm text-violet-200">
+            <div className="mx-auto mt-6 max-w-sm rounded-xl bg-[var(--primary-50)] px-5 py-4 text-left text-sm text-[var(--primary-800)]">
               <p>
                 <strong>{citaFinal.servicio}</strong>
               </p>
@@ -511,7 +531,7 @@ export function Agendar() {
                 })}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-400/100"
+                className="rounded-xl bg-[var(--primary-600)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--primary-700)]"
               >
                 Añadir a Google Calendar
               </a>
@@ -524,7 +544,7 @@ export function Agendar() {
                   ubicacion: config?.direccion ?? "",
                 })}
                 download="cita.ics"
-                className="rounded-xl border border-violet-300 px-4 py-2.5 text-sm font-semibold text-violet-300 transition hover:bg-violet-400/10"
+                className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-[var(--primary-700)] transition hover:bg-[var(--primary-50)]"
               >
                 Descargar .ics
               </a>
@@ -538,5 +558,16 @@ export function Agendar() {
         )}
       </main>
     </div>
+  );
+}
+
+function BotónVolverServicio({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-50"
+    >
+      ← Cambiar
+    </button>
   );
 }

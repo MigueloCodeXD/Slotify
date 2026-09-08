@@ -15,10 +15,10 @@ const ETIQUETAS: Record<string, string> = {
 };
 
 const COLORES: Record<string, string> = {
-  confirmada: "bg-teal-400/10 text-teal-300 border-teal-300/25",
-  completada: "bg-sky-400/10 text-sky-300 border-sky-300/25",
-  cancelada: "bg-rose-400/10 text-rose-300/80 border-rose-400/25",
-  no_show: "bg-amber-400/10 text-amber-300/85 border-amber-300/25",
+  confirmada: "bg-teal-50 text-teal-700 border-teal-200",
+  completada: "bg-sky-50 text-sky-700 border-sky-200",
+  cancelada: "bg-rose-50 text-rose-600 border-rose-200",
+  no_show: "bg-amber-50 text-amber-700 border-amber-200",
 };
 
 interface ConvMensaje {
@@ -122,7 +122,7 @@ export function MensajesPanel() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Mensajes</h1>
+        <h1 className="text-2xl font-bold text-zinc-900">Mensajes</h1>
         <Boton variante="claro" onClick={cargar} disabled={cargando}>
           {cargando ? "Cargando…" : "Actualizar"}
         </Boton>
@@ -130,11 +130,11 @@ export function MensajesPanel() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Tarjeta className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-violet-300">Conversaciones</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Conversaciones</h2>
           {cargando && conversaciones.length === 0 ? (
-            <p className="py-6 text-center text-sm text-zinc-400">Cargando…</p>
+            <p className="py-6 text-center text-sm text-zinc-500">Cargando…</p>
           ) : conversaciones.length === 0 ? (
-            <p className="py-6 text-sm text-zinc-400">
+            <p className="py-6 text-sm text-zinc-500">
               Aún no hay mensajes de clientes. Cuando un cliente escriba, aparecerá aquí.
             </p>
           ) : (
@@ -148,26 +148,26 @@ export function MensajesPanel() {
                       onClick={() => setActivaId(c.cita_id)}
                       className={`w-full rounded-xl border px-3 py-2 text-left transition ${
                         activaId === c.cita_id
-                          ? "border-violet-400/50 bg-violet-400/10"
-                          : "border-white/10 bg-white/[0.04] hover:border-violet-400/30"
+                          ? "border-[var(--primary-200)] bg-[var(--primary-50)]"
+                          : "border-zinc-200 bg-white hover:border-[var(--primary-200)]"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-zinc-100">
+                        <span className="text-sm font-semibold text-zinc-900">
                           {c.cita?.cliente?.nombre ?? "Cliente"}
                         </span>
                         {nuevas > 0 && (
-                          <span className="rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span className="rounded-full bg-[var(--primary-600)] px-2 py-0.5 text-[10px] font-bold text-white">
                             {nuevas}
                           </span>
                         )}
                       </div>
-                      <p className="truncate text-xs text-zinc-400">
+                      <p className="truncate text-xs text-zinc-500">
                         {c.cita?.servicio?.nombre ?? "Servicio"} ·{" "}
                         {c.cita ? fechaCita(c.cita.rango_tiempo) : ""}
                       </p>
                       {ultimo && (
-                        <p className="truncate text-xs text-zinc-500">
+                        <p className="truncate text-xs text-zinc-600">
                           {ultimo.emisor === "cliente" ? "Cliente: " : "Tú: "}
                           {ultimo.mensaje}
                         </p>
@@ -181,18 +181,18 @@ export function MensajesPanel() {
         </Tarjeta>
 
         <Tarjeta className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-violet-300">Hilo</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Hilo</h2>
           {!activa ? (
-            <p className="py-6 text-sm text-zinc-400">Selecciona una conversación.</p>
+            <p className="py-6 text-sm text-zinc-500">Selecciona una conversación.</p>
           ) : (
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-zinc-100">
+                <p className="text-sm font-semibold text-zinc-900">
                   {activa.cita?.cliente?.nombre ?? "Cliente"}
                 </p>
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                    COLORES[activa.cita?.estado ?? ""] ?? "bg-white/10 text-zinc-300"
+                    COLORES[activa.cita?.estado ?? ""] ?? "bg-zinc-100 text-zinc-600"
                   }`}
                 >
                   {ETIQUETAS[activa.cita?.estado ?? ""] ?? activa.cita?.estado}
@@ -200,7 +200,7 @@ export function MensajesPanel() {
                 <button
                   onClick={limpiarConversacion}
                   disabled={limpiando}
-                  className="rounded-lg border border-white/10 px-2 py-0.5 text-[11px] font-semibold text-rose-300/90 transition hover:border-rose-400/40 hover:text-rose-200 disabled:opacity-50"
+                  className="rounded-lg border border-zinc-200 px-2 py-0.5 text-[11px] font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700 disabled:opacity-50"
                 >
                   {limpiando ? "Borrando…" : "Limpiar"}
                 </button>
@@ -211,8 +211,8 @@ export function MensajesPanel() {
                     <div
                       className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
                         m.emisor === "cliente"
-                          ? "rounded-bl-sm bg-white/10 text-zinc-100"
-                          : "rounded-br-sm bg-violet-600/90 text-white"
+                          ? "rounded-bl-sm bg-[var(--primary-50)] text-zinc-900"
+                          : "rounded-br-sm bg-[var(--primary-600)] text-white"
                       }`}
                     >
                       {m.mensaje}
@@ -233,7 +233,7 @@ export function MensajesPanel() {
                   onChange={(e) => setTexto(e.target.value)}
                   rows={2}
                   placeholder="Escribe tu respuesta al cliente…"
-                  className="flex-1 rounded-xl border border-white/10 bg-white/[0.06] p-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-violet-400 outline-none"
+                  className="flex-1 rounded-xl border border-zinc-200 bg-white p-2.5 text-sm text-zinc-900 placeholder-zinc-400 focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20 outline-none"
                 />
                 <Boton variante="primario" onClick={responder} disabled={enviando || texto.trim().length < 1}>
                   {enviando ? "Enviando…" : "Responder"}

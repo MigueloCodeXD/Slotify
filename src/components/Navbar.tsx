@@ -3,22 +3,39 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { configPublica } from "@/lib/supabaseClient";
+import { aplicarTema } from "@/lib/theme";
+import type { Config } from "@/types";
 
 export function Navbar() {
   const pathname = usePathname();
+  const [config, setConfig] = useState<Config | null>(null);
+
+  useEffect(() => {
+    configPublica().then((c) => {
+      const cfg = c.data as Config | null;
+      setConfig(cfg);
+      if (cfg?.color_principal) aplicarTema(cfg.color_principal);
+    });
+  }, []);
+
+  const logo = config?.logo_url || "/logo.png";
+  const nombre = config?.nombre_negocio || "Slotify";
+
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-black/20 backdrop-blur-lg animate-fade-in">
+    <header className="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/85 backdrop-blur-lg animate-fade-in">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3">
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/logo.png"
-            alt="Slotify"
+            src={logo}
+            alt={nombre}
             width={40}
             height={40}
-            className="h-9 w-9 object-contain drop-shadow-lg"
+            className="h-9 w-9 rounded-xl object-contain"
           />
-          <span className="text-lg font-bold tracking-tight text-white">
-            Slotify
+          <span className="text-lg font-bold tracking-tight text-zinc-900">
+            {nombre}
           </span>
         </Link>
         <nav className="flex flex-wrap items-center gap-1 sm:gap-2 text-sm font-medium">
@@ -26,31 +43,31 @@ export function Navbar() {
             href="/"
             className={`rounded-lg px-2 py-2 sm:px-3 transition ${
               pathname === "/"
-                ? "bg-white/15 text-white"
-                : "text-violet-100 hover:bg-white/10 hover:text-white"
+                ? "bg-[var(--primary-50)] text-[var(--primary-700)]"
+                : "text-zinc-600 hover:bg-[var(--primary-50)] hover:text-[var(--primary-700)]"
             }`}
           >
             Servicios
           </Link>
           <Link
             href="/mis-citas"
-            className={`rounded-lg px-2 py-2 transition hover:px-3 sm:px-3 ${
+            className={`rounded-lg px-2 py-2 transition sm:px-3 ${
               pathname.startsWith("/mis-citas")
-                ? "bg-white/15 text-white"
-                : "text-violet-100 hover:bg-white/10 hover:text-white"
+                ? "bg-[var(--primary-50)] text-[var(--primary-700)]"
+                : "text-zinc-600 hover:bg-[var(--primary-50)] hover:text-[var(--primary-700)]"
             }`}
           >
             Mis citas
           </Link>
           <Link
             href="/agendar"
-            className="rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 px-3 py-2 font-semibold text-white shadow-lg shadow-violet-900/30 transition hover:from-violet-400 hover:to-fuchsia-400"
+            className="rounded-lg bg-[var(--primary-600)] px-3 py-2 font-semibold text-white shadow-md shadow-[var(--primary-900)]/20 transition hover:bg-[var(--primary-700)]"
           >
             Agendar
           </Link>
           <Link
             href="/login"
-            className="rounded-lg bg-white/10 px-3 py-2 text-white transition hover:bg-white/20"
+            className="rounded-lg border border-zinc-200 bg-white px-3 py-2 text-zinc-700 transition hover:border-[var(--primary-300)] hover:text-[var(--primary-700)]"
           >
             Profesionales
           </Link>

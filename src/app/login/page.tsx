@@ -46,39 +46,39 @@ export default function Login() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4">
       <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-24 left-1/4 h-72 w-72 rounded-full bg-fuchsia-500/30 blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-violet-500/25 blur-3xl" />
+        <div className="absolute -top-24 left-1/4 h-72 w-72 rounded-full bg-[var(--primary-200)]/40 blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 h-72 w-72 rounded-full bg-[var(--primary-100)]/40 blur-3xl" />
       </div>
       <Link
         href="/"
-        className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-violet-100 transition hover:bg-white/10 hover:text-white"
+        className="absolute left-4 top-4 z-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900"
       >
         ← Volver al inicio
       </Link>
       <Tarjeta className="w-full max-w-sm p-8 animate-scale-in">
-        <h1 className="text-center text-2xl font-bold text-zinc-100">
+        <h1 className="text-center text-2xl font-bold text-zinc-900">
           Panel profesional
         </h1>
-        <p className="mt-1 text-center text-sm text-zinc-400">
+        <p className="mt-1 text-center text-sm text-zinc-600">
           Inicia sesión con tu cuenta de Slotify
         </p>
 
         {error && (
-          <div className="mt-4 rounded-xl border border-rose-400/25 bg-rose-500/15 px-4 py-3 text-sm text-rose-200 backdrop-blur">
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
             {error}
           </div>
         )}
 
         {recuperado ? (
-          <div className="mt-6 rounded-xl border border-teal-400/25 bg-teal-500/15 px-4 py-3 text-sm text-teal-200 backdrop-blur">
+          <div className="mt-6 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-700">
             Si el correo está registrado, enviamos un enlace para restablecer tu contraseña. Revisa tu bandeja de
             entrada.
           </div>
         ) : recuperar ? (
           <form onSubmit={solicitarRecuperacion} className="mt-6 space-y-4">
-            <p className="text-sm text-zinc-400">
+            <p className="text-sm text-zinc-600">
               Te enviaremos un enlace a tu correo para crear una nueva contraseña.
             </p>
             <Campo
@@ -87,7 +87,6 @@ export default function Login() {
               placeholder="tucorreo@negocio.com"
               value={emailRec}
               onChange={(e) => setEmailRec(e.target.value)}
-              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Boton type="submit" variante="primario" className="w-full" disabled={cargando}>
               {cargando ? <Spinner /> : "Enviar enlace"}
@@ -98,7 +97,7 @@ export default function Login() {
                 setRecuperar(false);
                 setError(null);
               }}
-              className="w-full text-center text-xs font-semibold text-violet-300 hover:text-violet-200 hover:underline"
+              className="w-full text-center text-xs font-semibold text-zinc-500 hover:text-zinc-700 hover:underline"
             >
               Volver al inicio de sesión
             </button>
@@ -111,7 +110,6 @@ export default function Login() {
               placeholder="tucorreo@negocio.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Campo
               label="Contraseña"
@@ -119,7 +117,6 @@ export default function Login() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="border-white/10 bg-white/[0.06] text-zinc-100 placeholder-zinc-500 focus:border-violet-400 focus:ring-violet-300"
             />
             <Boton type="submit" variante="primario" className="w-full" disabled={cargando}>
               {cargando ? <Spinner /> : "Entrar"}
@@ -130,13 +127,13 @@ export default function Login() {
                 setRecuperar(true);
                 setError(null);
               }}
-              className="w-full text-center text-xs font-semibold text-violet-300 hover:text-violet-200 hover:underline"
+              className="w-full text-center text-xs font-semibold text-zinc-500 hover:text-zinc-700 hover:underline"
             >
               ¿Olvidaste tu contraseña?
             </button>
           </form>
         )}
       </Tarjeta>
-    </div>
+    </main>
   );
 }

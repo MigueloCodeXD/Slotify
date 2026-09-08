@@ -16,27 +16,27 @@ import type { CitaProfesional, Bloqueo, Profesional } from "@/types";
 const DIAS_SEMANA = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
 const COLOR_DOT: Record<string, string> = {
-  confirmada: "bg-teal-400",
-  pendiente: "bg-fuchsia-400",
-  completada: "bg-sky-400",
-  no_show: "bg-amber-400",
-  cancelada: "bg-rose-400/70",
+  confirmada: "bg-teal-500",
+  pendiente: "bg-fuchsia-500",
+  completada: "bg-sky-500",
+  no_show: "bg-amber-500",
+  cancelada: "bg-rose-400",
 };
 
 const COLOR_CHIP: Record<string, string> = {
-  confirmada: "border-teal-300/30 bg-teal-400/10 text-teal-200",
-  pendiente: "border-fuchsia-300/30 bg-fuchsia-400/10 text-fuchsia-200",
-  completada: "border-sky-300/30 bg-sky-400/10 text-sky-200",
-  no_show: "border-amber-300/30 bg-amber-400/10 text-amber-200",
-  cancelada: "border-rose-300/25 bg-rose-400/5 text-rose-200/70 line-through",
+  confirmada: "border-teal-200 bg-teal-50 text-teal-700",
+  pendiente: "border-fuchsia-200 bg-fuchsia-50 text-fuchsia-700",
+  completada: "border-sky-200 bg-sky-50 text-sky-700",
+  no_show: "border-amber-200 bg-amber-50 text-amber-700",
+  cancelada: "border-rose-200 bg-rose-50 text-rose-400 line-through",
 };
 
 const TONO_ESTADO: Record<string, string> = {
-  confirmada: "bg-teal-400/10 text-teal-300 border-teal-300/25",
-  pendiente: "bg-fuchsia-400/10 text-fuchsia-300 border-fuchsia-300/25",
-  completada: "bg-sky-400/10 text-sky-300 border-sky-300/25",
-  no_show: "bg-amber-400/10 text-amber-300 border-amber-300/25",
-  cancelada: "bg-rose-400/10 text-rose-300/80 border-rose-400/25",
+  confirmada: "bg-teal-50 text-teal-700 border-teal-200",
+  pendiente: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200",
+  completada: "bg-sky-50 text-sky-700 border-sky-200",
+  no_show: "bg-amber-50 text-amber-700 border-amber-200",
+  cancelada: "bg-rose-50 text-rose-400 border-rose-200",
 };
 
 function fmtHora(iso: string): string {
@@ -405,46 +405,46 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl font-semibold text-white animate-fade-up">Calendario</h1>
-          <p className="mt-1 text-sm text-violet-200/60">Gestiona tus citas del {vista === "semana" ? "día a día" : "mes"}</p>
+          <h1 className="font-display text-3xl font-semibold text-zinc-900 animate-fade-up">Calendario</h1>
+          <p className="mt-1 text-sm text-zinc-500">Gestiona tus citas del {vista === "semana" ? "día a día" : "mes"}</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="mr-2 flex overflow-hidden rounded-xl border border-white/10 text-xs font-semibold">
+          <div className="mr-2 flex overflow-hidden rounded-xl border border-zinc-200 bg-white text-xs font-semibold">
             <button
               onClick={() => setVista("mes")}
-              className={`px-3 py-2 transition ${vista === "mes" ? "bg-white/15 text-white" : "bg-transparent text-zinc-400 hover:text-white"}`}
+              className={`px-3 py-2 transition ${vista === "mes" ? "bg-[var(--primary-600)] text-white" : "bg-transparent text-zinc-500 hover:text-[var(--primary-700)]"}`}
             >
               Mes
             </button>
             <button
               onClick={() => setVista("semana")}
-              className={`px-3 py-2 transition ${vista === "semana" ? "bg-white/15 text-white" : "bg-transparent text-zinc-400 hover:text-white"}`}
+              className={`px-3 py-2 transition ${vista === "semana" ? "bg-[var(--primary-600)] text-white" : "bg-transparent text-zinc-500 hover:text-[var(--primary-700)]"}`}
             >
               Semana
             </button>
           </div>
           <button
             onClick={() => navegar(-1)}
-            className="glass glass-hover flex h-9 w-9 items-center justify-center rounded-xl text-white"
+            className="glass glass-hover flex h-9 w-9 items-center justify-center rounded-xl text-zinc-700"
             aria-label="Anterior"
           >
             ‹
           </button>
           <button
             onClick={volverHoy}
-            className="glass glass-hover rounded-xl px-3 py-1.5 text-sm text-white"
+            className="glass glass-hover rounded-xl px-3 py-1.5 text-sm text-zinc-700"
           >
             Hoy
           </button>
           <button
             onClick={() => setNuevaCita(true)}
-            className="rounded-xl bg-gradient-to-r from-violet-500 to-violet-400 px-3 py-1.5 text-sm font-semibold text-white shadow-lg shadow-violet-900/40 transition-all duration-200 hover:-translate-y-0.5 hover:to-fuchsia-400 active:scale-95"
+            className="rounded-xl bg-[var(--primary-600)] px-3 py-1.5 text-sm font-semibold text-white shadow-lg shadow-[var(--primary-900)]/20 transition-all duration-200 hover:-translate-y-0.5 hover:bg-[var(--primary-700)] active:scale-95"
           >
             + Nueva cita
           </button>
           <button
             onClick={() => navegar(1)}
-            className="glass glass-hover flex h-9 w-9 items-center justify-center rounded-xl text-white"
+            className="glass glass-hover flex h-9 w-9 items-center justify-center rounded-xl text-zinc-700"
             aria-label="Siguiente"
           >
             ›
@@ -455,16 +455,16 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
       {/* ---- Citas de hoy: línea de tiempo vertical ---- */}
       <Tarjeta className="p-4 sm:p-5 animate-fade-up">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Agenda de hoy</h2>
-          <span className="rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-xs font-semibold capitalize text-violet-200">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Agenda de hoy</h2>
+          <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-xs font-semibold capitalize text-zinc-600">
             {new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(new Date())}
           </span>
         </div>
         {citasHoy.length === 0 ? (
-          <p className="text-sm text-zinc-400">No tienes citas confirmadas para hoy.</p>
+          <p className="text-sm text-zinc-500">No tienes citas confirmadas para hoy.</p>
         ) : (
           <div className="relative space-y-3">
-            <span className="absolute top-1 bottom-1 left-[7px] w-px bg-white/10" aria-hidden />
+            <span className="absolute top-1 bottom-1 left-[7px] w-px bg-zinc-200" aria-hidden />
             {citasHoy.map((c, i) => (
               <div
                 key={c.id}
@@ -472,18 +472,18 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 style={{ animationDelay: `${i * 60}ms` }}
               >
                 <span
-                  className={`relative z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-[#0b0817] ${COLOR_DOT[c.estado] ?? "bg-teal-400"}`}
+                  className={`relative z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-white shadow-sm ${COLOR_DOT[c.estado] ?? "bg-teal-500"}`}
                 />
                 <button
                   onClick={() => setSelId(selId === c.id ? null : c.id)}
                   className="glass glass-hover flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left"
                 >
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-zinc-100">
-                      <span className="font-mono text-violet-300">{fmtHora(c.start)}</span> ·{" "}
+                    <p className="truncate text-sm font-semibold text-zinc-900">
+                      <span className="font-mono text-[var(--primary-700)]">{fmtHora(c.start)}</span> ·{" "}
                       {c.cliente?.nombre}
                     </p>
-                    <p className="truncate text-xs text-zinc-400">
+                    <p className="truncate text-xs text-zinc-500">
                       {c.servicio?.nombre} {c.servicio?.duracion_min ? `· ${c.servicio.duracion_min} min` : ""}
                       {c.precio_servicio != null ? ` · ${fmtMoneda(c.precio_servicio)}` : ""}
                     </p>
@@ -503,20 +503,20 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
       {/* ---- Calendario mensual ---- */}
       <Tarjeta className="p-4 sm:p-6 animate-fade-up [animation-delay:100ms]">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold capitalize text-white">{tituloPeriodo}</h2>
-          <div className="flex items-center gap-4 text-xs text-zinc-400">
+          <h2 className="font-display text-lg font-semibold capitalize text-zinc-900">{tituloPeriodo}</h2>
+          <div className="flex items-center gap-4 text-xs text-zinc-500">
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-violet-400" /> Citas
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--primary-600)]" /> Citas
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-400/80" /> Bloqueos
+              <span className="h-2.5 w-2.5 rounded-full bg-rose-400" /> Bloqueos
             </span>
           </div>
         </div>
 
         {vista === "semana" && (
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <div className="grid grid-cols-7 gap-px bg-white/[0.06]">
+          <div className="overflow-hidden rounded-2xl border border-zinc-200">
+            <div className="grid grid-cols-7 gap-px bg-zinc-100">
               {diasSemana.map((d) => {
                 const { citas: delDia, bloqueos: bloqueosDia, esHoy } = eventosDelDia(d);
                 const extraSemana = delDia.length + bloqueosDia.length;
@@ -525,17 +525,17 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                     key={d.toISOString()}
                     onClick={() => extraSemana > 0 && setDiaAbierto(keyDia(d))}
                     title={extraSemana > 0 ? "Ver citas del día" : undefined}
-                    className={`min-h-[140px] bg-[#0b0817]/90 p-1.5 ${extraSemana > 0 ? "cursor-pointer" : ""}`}
+                    className={`min-h-[140px] bg-white p-1.5 ${extraSemana > 0 ? "cursor-pointer" : ""}`}
                   >
-                    <div className="flex flex-col items-center gap-0.5 border-b border-white/[0.06] pb-1.5 text-center">
+                    <div className="flex flex-col items-center gap-0.5 border-b border-zinc-100 pb-1.5 text-center">
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs font-semibold ${
-                          esHoy ? "bg-gradient-to-br from-violet-500 to-fuchsia-400 text-white" : "text-zinc-300"
+                          esHoy ? "bg-[var(--primary-600)] text-white" : "text-zinc-700"
                         }`}
                       >
                         {d.getDate()}
                       </span>
-                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-zinc-400">
+                      <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
                         {DIAS_SEMANA[(d.getDay() + 6) % 7]}
                       </span>
                     </div>
@@ -543,7 +543,7 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                       {bloqueosDia.map((b) => (
                         <div
                           key={b.id}
-                          className="truncate rounded-md border border-rose-300/20 bg-rose-400/10 px-1 py-0.5 font-mono text-[10px] text-rose-200"
+                          className="truncate rounded-md border border-rose-200 bg-rose-50 px-1 py-0.5 font-mono text-[10px] text-rose-700"
                           title={`Bloqueo ${fmtHora(b.start)}–${fmtHora(b.end)}${b.motivo ? " · " + b.motivo : ""}`}
                         >
                           🔒 {fmtHora(b.start)}
@@ -584,15 +584,15 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
             </div>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-white/10">
-            <div className="grid grid-cols-7 bg-white/[0.03] text-center">
+          <div className="overflow-hidden rounded-2xl border border-zinc-200">
+            <div className="grid grid-cols-7 bg-zinc-100/60 text-center">
               {DIAS_SEMANA.map((d) => (
-                <div key={d} className="py-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                <div key={d} className="py-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                   {d}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-px bg-white/[0.06]">
+            <div className="grid grid-cols-7 gap-px bg-zinc-100">
               {grid.map((d) => {
                 const { citas: delDia, bloqueos: bloqueosDia, esHoy, fueraMes } = eventosDelDia(d);
                 const extra = delDia.length + bloqueosDia.length;
@@ -601,26 +601,26 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                     key={d.toISOString()}
                     onClick={() => extra > 0 && setDiaAbierto(keyDia(d))}
                     title={extra > 0 ? "Ver citas del día" : undefined}
-                    className={`flex min-h-[64px] flex-col gap-1 bg-[#0b0817]/80 p-1.5 transition-colors duration-200 hover:bg-white/[0.04] sm:min-h-[92px] ${
-                      fueraMes ? "bg-transparent" : ""
+                    className={`flex min-h-[64px] flex-col gap-1 bg-white p-1.5 transition-colors duration-200 hover:bg-[var(--primary-50)]/50 sm:min-h-[92px] ${
+                      fueraMes ? "bg-zinc-50/50" : ""
                     } ${extra > 0 ? "cursor-pointer" : ""}`}
                   >
                     <div className="flex items-center justify-between">
                       <span
                         className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-xs font-semibold ${
                           esHoy
-                            ? "bg-gradient-to-br from-violet-500 to-fuchsia-400 text-white"
+                            ? "bg-[var(--primary-600)] text-white"
                             : fueraMes
-                              ? "text-zinc-600"
-                              : "text-zinc-300"
+                              ? "text-zinc-400"
+                              : "text-zinc-700"
                         }`}
                       >
                         {d.getDate()}
                       </span>
                       {extra > 0 && (
                         <span className="flex gap-1">
-                          {delDia.length > 0 && <span className="h-2 w-2 rounded-full bg-violet-400" />}
-                          {bloqueosDia.length > 0 && <span className="h-2 w-2 rounded-full bg-rose-400/80" />}
+                          {delDia.length > 0 && <span className="h-2 w-2 rounded-full bg-[var(--primary-600)]" />}
+                          {bloqueosDia.length > 0 && <span className="h-2 w-2 rounded-full bg-rose-400" />}
                         </span>
                       )}
                     </div>
@@ -629,7 +629,7 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                       {bloqueosDia.slice(0, 1).map((b) => (
                         <div
                           key={b.id}
-                          className="truncate rounded-md border border-rose-300/20 bg-rose-400/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-rose-200"
+                          className="truncate rounded-md border border-rose-200 bg-rose-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-rose-700"
                           title={`Bloqueo ${fmtHora(b.start)}–${fmtHora(b.end)}${b.motivo ? " · " + b.motivo : ""}`}
                         >
                           🔒 {fmtHora(b.start)}
@@ -648,7 +648,7 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                         </div>
                       ))}
                       {delDia.length > 2 && (
-                        <div className="px-1.5 font-mono text-[10px] font-semibold text-violet-300/80">
+                        <div className="px-1.5 font-mono text-[10px] font-semibold text-[var(--primary-700)]">
                           +{delDia.length - 2} más…
                         </div>
                       )}
@@ -663,8 +663,8 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
 
       <Tarjeta className="p-5 animate-fade-up [animation-delay:200ms]">
         <div className="mb-3 flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-400/15 text-sm">🔒</span>
-          <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-rose-50 text-sm">🔒</span>
+          <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">
             {bloqueoEditId ? "Editar bloqueo" : "Crear bloqueo"}
           </h2>
         </div>
@@ -709,14 +709,14 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
           Dejar &quot;Hasta&quot; en blanco crea un bloqueo de un solo día.
         </p>
         {bloqueoOcupado && (
-          <p className="mt-2 text-xs font-semibold text-rose-300">
+          <p className="mt-2 text-xs font-semibold text-rose-600">
             Este bloqueo solapa una cita existente. Ajusta el rango.
           </p>
         )}
         {bloqueoEditId && (
           <button
             onClick={cancelarEditarBloqueo}
-            className="mt-2 text-xs font-semibold text-zinc-400 underline-offset-2 transition hover:text-zinc-200 hover:underline"
+            className="mt-2 text-xs font-semibold text-zinc-500 underline-offset-2 transition hover:text-zinc-700 hover:underline"
           >
             Cancelar edición
           </button>
@@ -724,25 +724,25 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
 
         {bloqueos.length > 0 && (
           <div className="mt-5">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400">Mis bloqueos</h3>
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-500">Mis bloqueos</h3>
             <ul className="flex flex-col gap-2">
               {bloqueos.map((b) => (
                 <li
                   key={b.id}
                   className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-sm ${
                     bloqueoEditId === b.id
-                      ? "border-rose-400/50 bg-rose-400/10"
-                      : "border-white/10 bg-white/[0.03]"
+                      ? "border-rose-200 bg-rose-50"
+                      : "border-zinc-200 bg-white"
                   }`}
                 >
                   <div className="min-w-0">
-                    <p className="font-mono text-xs font-semibold text-rose-100">
+                    <p className="font-mono text-xs font-semibold text-rose-600">
                       {fmtPill(fechaLocal(b.start), TZ)} · {fmtHora(b.start)}–{fmtHora(b.end)}
                       {fechaLocal(b.end) !== fechaLocal(b.start) && (
                         <span className="text-zinc-400"> hasta {fmtPill(fechaLocal(b.end), TZ)}</span>
                       )}
                     </p>
-                    {b.motivo && <p className="truncate text-xs text-zinc-400">{b.motivo}</p>}
+                    {b.motivo && <p className="truncate text-xs text-zinc-500">{b.motivo}</p>}
                   </div>
                   <div className="flex shrink-0 gap-2">
                     <Boton
@@ -774,18 +774,18 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
         const cita = citas.find((c) => c.id === reproId);
         if (!cita) return null;
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-            <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+            <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-900 shadow-2xl animate-scale-in">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-display text-lg font-semibold text-white">Reprogramar cita</h3>
-                  <p className="text-sm text-zinc-400">
+                  <h3 className="font-display text-lg font-semibold text-zinc-900">Reprogramar cita</h3>
+                  <p className="text-sm text-zinc-500">
                     {cita.cliente?.nombre} · {cita.servicio?.nombre}
                   </p>
                 </div>
                 <button
                   onClick={() => setReproId(null)}
-                  className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+                  className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
                   aria-label="Cerrar"
                 >
                   ✕
@@ -799,8 +799,8 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                     onClick={() => cargarSlots(d)}
                     className={`shrink-0 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
                       reproDia === d
-                        ? "border-violet-400 bg-violet-500/30 text-white"
-                        : "border-white/10 bg-white/[0.05] text-zinc-300 hover:border-violet-400/50"
+                        ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:border-[var(--primary-400)]"
                     }`}
                   >
                     {fmtPill(d, TZ)}
@@ -821,8 +821,8 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                         onClick={() => setReproSlot(s)}
                         className={`rounded-xl border px-3 py-2 font-mono text-sm font-semibold transition ${
                           reproSlot?.start === s.start
-                            ? "border-violet-400 bg-violet-500/30 text-white"
-                            : "border-white/10 bg-white/[0.05] text-zinc-200 hover:border-violet-400/50"
+                            ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white"
+                            : "border-zinc-200 bg-white text-zinc-700 hover:border-[var(--primary-400)]"
                         }`}
                       >
                         {new Intl.DateTimeFormat("es", {
@@ -848,7 +848,7 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                   </div>
                 </>
               ) : (
-                <p className="py-6 text-center text-sm text-zinc-400">
+                <p className="py-6 text-center text-sm text-zinc-500">
                   No hay horarios disponibles ese día. Prueba con otro.
                 </p>
               )}
@@ -864,21 +864,21 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
           .sort((a, b) => a.start.localeCompare(b.start));
         const bloqueosDia = bloqueos.filter((b) => fechaLocal(b.start) === diaAbierto);
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-            <div className="glass-strong max-h-[85vh] w-full max-w-lg overflow-auto rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+            <div className="glass-strong max-h-[85vh] w-full max-w-lg overflow-auto rounded-3xl p-5 text-zinc-900 shadow-2xl animate-scale-in">
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-display text-lg font-semibold capitalize text-white">
+                  <h3 className="font-display text-lg font-semibold capitalize text-zinc-900">
                     {new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "long", timeZone: TZ }).format(new Date(diaAbierto))}
                   </h3>
-                  <p className="text-sm text-zinc-400">
+                  <p className="text-sm text-zinc-500">
                     {delDia.length} cita{delDia.length === 1 ? "" : "s"}
                     {bloqueosDia.length > 0 && ` · ${bloqueosDia.length} bloqueo${bloqueosDia.length === 1 ? "" : "s"}`}
                   </p>
                 </div>
                 <button
                   onClick={() => setDiaAbierto(null)}
-                  className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+                  className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
                   aria-label="Cerrar"
                 >
                   ✕
@@ -886,18 +886,18 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
               </div>
 
               {delDia.length === 0 && bloqueosDia.length === 0 ? (
-                <p className="py-8 text-center text-sm text-zinc-400">Este día no tiene citas ni bloqueos.</p>
+                <p className="py-8 text-center text-sm text-zinc-500">Este día no tiene citas ni bloqueos.</p>
               ) : (
                 <ul className="space-y-2">
                   {bloqueosDia.map((b) => (
                     <li
                       key={`b-${b.id}`}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-rose-300/20 bg-rose-400/10 px-3 py-2 text-sm"
+                      className="flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm"
                     >
-                      <span className="font-mono text-rose-200">
+                      <span className="font-mono text-rose-700">
                         🔒 {fmtHora(b.start)}–{fmtHora(b.end)}
                       </span>
-                      {b.motivo && <span className="text-xs text-rose-200/70">{b.motivo}</span>}
+                      {b.motivo && <span className="text-xs text-rose-500">{b.motivo}</span>}
                     </li>
                   ))}
                   {delDia.map((c) => (
@@ -907,13 +907,13 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                           setDiaAbierto(null);
                           setSelId(c.id);
                         }}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-left text-sm transition hover:bg-white/[0.08]"
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-left text-sm transition hover:bg-[var(--primary-50)]"
                       >
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-zinc-100">
-                            <span className="font-mono text-violet-300">{fmtHora(c.start)}</span> · {c.cliente?.nombre}
+                          <p className="truncate font-semibold text-zinc-900">
+                            <span className="font-mono text-[var(--primary-700)]">{fmtHora(c.start)}</span> · {c.cliente?.nombre}
                           </p>
-                          <p className="truncate text-xs text-zinc-400">
+                          <p className="truncate text-xs text-zinc-500">
                             {c.servicio?.nombre}
                             {c.precio_servicio != null ? ` · ${fmtMoneda(c.precio_servicio)}` : ""}
                           </p>
@@ -951,15 +951,15 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
           botones.push({ estado: "confirmada", texto: "Restaurar", tono: "claro" });
         }
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-            <div className="glass-strong w-full max-w-lg rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+            <div className="glass-strong w-full max-w-lg rounded-3xl p-5 text-zinc-900 shadow-2xl animate-scale-in">
               <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-display text-lg font-semibold text-white">
+                  <h3 className="font-display text-lg font-semibold text-zinc-900">
                     {cita.cliente?.nombre ?? "Cliente"}
                   </h3>
-                  <p className="text-sm text-zinc-400">
-                    <span className="font-mono text-violet-300">{fmtHora(cita.start)}</span> – {fmtHora(cita.end)} ·{" "}
+                  <p className="text-sm text-zinc-500">
+                    <span className="font-mono text-[var(--primary-700)]">{fmtHora(cita.start)}</span> – {fmtHora(cita.end)} ·{" "}
                     {cita.servicio?.nombre}
                   </p>
                   <span
@@ -971,25 +971,25 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 </div>
                 <button
                   onClick={() => setSelId(null)}
-                  className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+                  className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
                   aria-label="Cerrar"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="mb-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-zinc-300">
+              <div className="mb-3 rounded-xl border border-zinc-200 bg-white p-3 text-sm text-zinc-600">
                 {cita.cliente?.email && <p>📧 {cita.cliente.email}</p>}
                 {cita.cliente?.telefono && <p>📱 {cita.cliente.telefono}</p>}
                 {cita.estado !== "cancelada" && (
-                  <p>💲 Precio: <span className="font-mono font-semibold text-zinc-100">{fmtMoneda(cita.precio_servicio)}</span></p>
+                  <p>💲 Precio: <span className="font-mono font-semibold text-zinc-900">{fmtMoneda(cita.precio_servicio)}</span></p>
                 )}
                 {cita.estado_pago && cita.estado_pago !== "pendiente" && (
                   <p>
                     {cita.estado_pago === "pagado" ? "✅" : "🟡"} Pago:{" "}
-                    <span className="font-mono font-semibold text-zinc-100">{cita.estado_pago === "pagado" ? "Pagado" : "Parcial"}</span>
+                    <span className="font-mono font-semibold text-zinc-900">{cita.estado_pago === "pagado" ? "Pagado" : "Parcial"}</span>
                     {cita.anticipo != null && cita.anticipo > 0 && (
-                      <span className="text-zinc-400"> · {fmtMoneda(cita.anticipo)}</span>
+                      <span className="text-zinc-500"> · {fmtMoneda(cita.anticipo)}</span>
                     )}
                   </p>
                 )}
@@ -1004,31 +1004,31 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 )}
                 <button
                   onClick={() => abrirHistorial(cita.cliente!.id)}
-                  className="mt-1.5 font-semibold text-violet-300 hover:text-violet-200 hover:underline"
+                  className="mt-1.5 font-semibold text-[var(--primary-700)] hover:text-[var(--primary-800)] hover:underline"
                 >
                   Ver historial del cliente →
                 </button>
               </div>
 
               <div className="mb-3">
-                <label className="mb-1 block text-xs font-semibold text-zinc-400">Notas</label>
+                <label className="mb-1 block text-xs font-semibold text-zinc-500">Notas</label>
                 <textarea
                   value={notasDraft}
                   onChange={(e) => setNotasDraft(e.target.value)}
                   rows={3}
-                  className="w-full rounded-xl border border-white/10 bg-white/[0.05] px-3 py-2 text-sm text-zinc-100 outline-none backdrop-blur transition focus:border-violet-400/60 focus:ring-2 focus:ring-violet-500/25"
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/25"
                   placeholder="Anota observaciones, seguimiento, intereses del cliente…"
                 />
                 <button
                   onClick={guardarNotas}
-                  className="mt-1 text-xs font-semibold text-violet-300 hover:text-violet-200 hover:underline"
+                  className="mt-1 text-xs font-semibold text-[var(--primary-700)] hover:text-[var(--primary-800)] hover:underline"
                 >
                   💾 Guardar notas
                 </button>
               </div>
 
               {detalleMsg && (
-                <p className="mb-3 text-sm font-semibold text-violet-300">{detalleMsg}</p>
+                <p className="mb-3 text-sm font-semibold text-[var(--primary-700)]">{detalleMsg}</p>
               )}
 
               <div className="flex flex-wrap gap-2">
@@ -1060,20 +1060,20 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
 
       {/* ---- Historial del cliente ---- */}
       {(historial || historialCargando) && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-          <div className="glass-strong max-h-[80vh] w-full max-w-lg overflow-auto rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+          <div className="glass-strong max-h-[80vh] w-full max-w-lg overflow-auto rounded-3xl p-5 text-zinc-900 shadow-2xl animate-scale-in">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-display text-lg font-semibold text-white">
+                <h3 className="font-display text-lg font-semibold text-zinc-900">
                   Historial de {historial?.cliente?.nombre ?? "…"}
                 </h3>
                 {historial?.cliente?.email && (
-                  <p className="text-sm text-zinc-400">{historial.cliente.email}</p>
+                  <p className="text-sm text-zinc-500">{historial.cliente.email}</p>
                 )}
               </div>
               <button
                 onClick={() => setHistorial(null)}
-                className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+                className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
                 aria-label="Cerrar"
               >
                 ✕
@@ -1084,7 +1084,7 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 <Spinner />
               </div>
             ) : historial!.citas.length === 0 ? (
-              <p className="py-6 text-center text-sm text-zinc-400">
+              <p className="py-6 text-center text-sm text-zinc-500">
                 Este cliente no tiene citas registradas.
               </p>
             ) : (
@@ -1092,11 +1092,11 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
                 {historial!.citas.map((h) => (
                   <div
                     key={h.id}
-                    className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm animate-card-in"
+                    className="flex items-center justify-between rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm animate-card-in"
                   >
                     <div>
-                      <p className="font-semibold text-zinc-100">{h.servicio?.nombre}</p>
-                      <p className="font-mono text-xs text-zinc-400">
+                      <p className="font-semibold text-zinc-900">{h.servicio?.nombre}</p>
+                      <p className="font-mono text-xs text-zinc-500">
                         {new Intl.DateTimeFormat("es", {
                           day: "numeric",
                           month: "short",
@@ -1181,30 +1181,30 @@ function ModalPago({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-900 shadow-2xl animate-scale-in">
         <div className="mb-1 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold text-white">Registrar pago</h3>
+          <h3 className="font-display text-lg font-semibold text-zinc-900">Registrar pago</h3>
           <button
             onClick={onCancel}
-            className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+            className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
             aria-label="Cerrar"
           >
             ✕
           </button>
         </div>
-        <p className="text-xs text-violet-200/70">
+        <p className="text-xs text-zinc-500">
           {cita.cliente?.nombre} · {cita.servicio?.nombre}
         </p>
-        <div className="mt-2 rounded-xl bg-white/[0.06] px-3 py-2 text-xs text-zinc-300">
-          Precio <span className="font-mono text-violet-200">{fmtMoneda(precio)}</span>
-          <span className="mx-2 text-zinc-500">·</span>
-          Pagado <span className="font-mono text-emerald-200">{fmtMoneda(anticipo)}</span>
-          <span className="mx-2 text-zinc-500">·</span>
-          Resta <span className="font-mono text-amber-200">{fmtMoneda(pendiente)}</span>
+        <div className="mt-2 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          Precio <span className="font-mono text-[var(--primary-700)]">{fmtMoneda(precio)}</span>
+          <span className="mx-2 text-zinc-400">·</span>
+          Pagado <span className="font-mono text-emerald-600">{fmtMoneda(anticipo)}</span>
+          <span className="mx-2 text-zinc-400">·</span>
+          Resta <span className="font-mono text-amber-600">{fmtMoneda(pendiente)}</span>
         </div>
 
-        <label className="mt-4 block text-xs font-semibold text-zinc-400">Monto</label>
+        <label className="mt-4 block text-xs font-semibold text-zinc-500">Monto</label>
         <input
           type="number"
           autoFocus
@@ -1214,14 +1214,14 @@ function ModalPago({
           step="0.01"
           onChange={(e) => setMonto(e.target.value)}
           placeholder={`Monto (máx. ${fmtMoneda(pendiente)})`}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+          className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
         />
 
-        <label className="mt-3 block text-xs font-semibold text-zinc-400">Método</label>
+        <label className="mt-3 block text-xs font-semibold text-zinc-500">Método</label>
         <select
           value={metodo}
           onChange={(e) => setMetodo(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+          className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-[var(--primary-400)]"
         >
           <option value="efectivo">Efectivo</option>
           <option value="tarjeta">Tarjeta (débito/crédito)</option>
@@ -1234,11 +1234,11 @@ function ModalPago({
             value={otro}
             onChange={(e) => setOtro(e.target.value)}
             placeholder="Ej: bonificación, convenio…"
-            className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-[var(--primary-400)]"
           />
         )}
 
-        {error && <p className="mt-2 text-sm text-rose-300">{error}</p>}
+        {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
 
         <div className="mt-5 flex gap-2">
           <Boton variante="secundario" className="flex-1" disabled={enviando} onClick={onCancel}>

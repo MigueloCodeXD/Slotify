@@ -1,8 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: #07050f;
-  --foreground: #ece7f6;
+  --background: #f6f5fb;
+  --foreground: #191827;
+  --primary-50: hsl(255 95% 96%);
+  --primary-100: hsl(255 88% 90%);
+  --primary-200: hsl(255 80% 78%);
+  --primary-300: hsl(255 70% 66%);
+  --primary-400: hsl(255 63% 57%);
+  --primary-500: hsl(255 58% 47%);
+  --primary-600: hsl(255 54% 39%);
+  --primary-700: hsl(255 50% 30%);
+  --primary-800: hsl(255 46% 22%);
+  --primary-900: hsl(255 42% 14%);
+  --primary: #7C3AED;
+  --primary-rgb: 124, 58, 237;
 }
 
 @theme inline {
@@ -128,26 +140,28 @@ html {
 body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
-  /* Fondo violeta oscuro casi negro con luz sutil arriba-izquierda */
+  /* Fondo claro con sutil halo del color primario */
   background:
-    radial-gradient(1100px 720px at 12% -8%, rgba(124, 58, 237, 0.18), transparent 62%),
-    radial-gradient(900px 600px at 96% 4%, rgba(139, 92, 246, 0.1), transparent 55%),
-    linear-gradient(180deg, #0b0817 0%, #07050f 55%, #060411 100%);
+    radial-gradient(1000px 600px at 8% -6%, rgba(var(--primary-rgb), 0.07), transparent 60%),
+    radial-gradient(800px 500px at 98% 2%, rgba(var(--primary-rgb), 0.05), transparent 55%),
+    linear-gradient(180deg, #f8f7fc 0%, #f6f5fb 55%, #f4f3fa 100%);
   background-attachment: fixed;
   background-repeat: no-repeat;
   min-height: 100vh;
 }
 
-/* ---- Vidrio esmerilado reutilizable ---- */
+/* ---- Tarjeta clara reutilizable ---- */
 .glass {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(160deg, rgba(139, 92, 246, 0.08), rgba(255, 255, 255, 0.04));
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 2px rgba(17, 12, 46, 0.04), 0 8px 24px -12px rgba(17, 12, 46, 0.1);
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 .glass-strong {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(160deg, rgba(139, 92, 246, 0.1), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(17, 12, 46, 0.06), 0 16px 40px -16px rgba(17, 12, 46, 0.16);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
 }
@@ -156,24 +170,24 @@ body {
 }
 .glass-hover:hover {
   transform: translateY(-3px);
-  border-color: rgba(167, 139, 250, 0.28);
-  box-shadow: 0 18px 40px -20px rgba(124, 58, 237, 0.35);
+  border-color: rgba(var(--primary-rgb), 0.22);
+  box-shadow: 0 18px 40px -18px rgba(var(--primary-rgb), 0.22);
 }
 
-/* Skeleton con efecto de cristal */
+/* Skeleton claro */
 .skeleton {
   border-radius: 1rem;
-  background: linear-gradient(100deg, rgba(255, 255, 255, 0.05) 40%, rgba(167, 139, 250, 0.14) 50%, rgba(255, 255, 255, 0.05) 60%);
+  background: linear-gradient(100deg, rgba(0, 0, 0, 0.04) 40%, rgba(var(--primary-rgb), 0.12) 50%, rgba(0, 0, 0, 0.04) 60%);
   background-size: 200% 100%;
   animation: shimmer 2.2s linear infinite;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 /* Título serif de marca con degradado sutil */
 .anim-title {
   font-family: var(--font-display), Georgia, serif;
   font-weight: 600;
-  background-image: linear-gradient(110deg, #c4b5fd 0%, #ffffff 30%, #e9d5ff 55%, #d8b4fe 80%, #c4b5fd 100%);
+  background-image: linear-gradient(110deg, var(--primary-500) 0%, #1c1c2e 30%, var(--primary-300) 55%, var(--primary-400) 80%, var(--primary-500) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -189,8 +203,7 @@ body {
 }
 
 .logo-glow {
-  filter: drop-shadow(0 6px 24px rgba(139, 92, 246, 0.4));
-  animation: float 6s ease-in-out infinite;
+  filter: drop-shadow(0 4px 14px rgba(var(--primary-rgb), 0.25));
 }
 
 /* ---- Selects y opciones con el estilo del tema ---- */
@@ -198,7 +211,7 @@ select {
   appearance: none;
   -webkit-appearance: none;
   -moz-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%23a78bfa' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6l4 4 4-4' stroke='%236b7280' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
   background-size: 16px 16px;
@@ -206,15 +219,15 @@ select {
   cursor: pointer;
 }
 select option {
-  background-color: #151024;
-  color: #ece7f6;
+  background-color: #ffffff;
+  color: var(--foreground);
 }
 select:focus {
   outline: none;
 }
 
 ::selection {
-  background: rgba(168, 85, 247, 0.35);
+  background: rgba(var(--primary-rgb), 0.16);
 }
 
 ::-webkit-scrollbar {
@@ -225,12 +238,12 @@ select:focus {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.3);
+  background: rgba(var(--primary-rgb), 0.22);
   border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.55);
+  background: rgba(var(--primary-rgb), 0.4);
   background-clip: padding-box;
 }

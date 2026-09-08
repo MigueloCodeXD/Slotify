@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Boton, Contador, Skeleton, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
-import { ChatIA } from "@/components/ChatIA";
+import { ChatFlotante } from "@/components/ChatFlotante";
 import { useToast } from "@/components/Toast";
 import { configPublica } from "@/lib/supabaseClient";
 import { TZ, actualizarTZ } from "@/lib/zonaHoraria";
@@ -88,23 +88,23 @@ const ETIQUETAS: Record<string, string> = {
 };
 
 const COLORES: Record<string, string> = {
-  confirmada: "bg-teal-400/10 text-teal-300 border-teal-300/25",
-  completada: "bg-sky-400/10 text-sky-300 border-sky-300/25",
-  cancelada: "bg-rose-400/10 text-rose-300/80 border-rose-400/25",
-  no_show: "bg-amber-400/10 text-amber-300/85 border-amber-300/25",
+  confirmada: "bg-teal-50 text-teal-700 border-teal-200",
+  completada: "bg-sky-50 text-sky-700 border-sky-200",
+  cancelada: "bg-rose-50 text-rose-500 border-rose-200",
+  no_show: "bg-amber-50 text-amber-600 border-amber-200",
 };
 
 const DOT: Record<string, string> = {
-  confirmada: "bg-teal-400",
-  completada: "bg-sky-400",
-  cancelada: "bg-rose-400/80",
-  no_show: "bg-amber-400",
+  confirmada: "bg-teal-500",
+  completada: "bg-sky-500",
+  cancelada: "bg-rose-400",
+  no_show: "bg-amber-500",
 };
 
 const PAGO_CHIP: Record<string, string> = {
-  pendiente: "border-zinc-300/20 bg-white/5 text-zinc-300",
-  parcial: "border-amber-300/30 bg-amber-400/10 text-amber-200",
-  pagado: "border-emerald-300/30 bg-emerald-400/10 text-emerald-200",
+  pendiente: "border-zinc-200 bg-zinc-50 text-zinc-500",
+  parcial: "border-amber-200 bg-amber-50 text-amber-700",
+  pagado: "border-emerald-200 bg-emerald-50 text-emerald-700",
 };
 
 function descargar(contenido: string, nombre: string, tipo: string) {
@@ -237,7 +237,7 @@ export function Dashboard() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 backdrop-blur">
+      <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 backdrop-blur">
         {error}
       </div>
     );
@@ -252,50 +252,50 @@ export function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="animate-fade-up">
-        <h1 className="font-display text-3xl font-semibold text-white">Resumen</h1>
-        <p className="mt-1 text-sm text-violet-200/60">Tu panorama del día y del mes</p>
+        <h1 className="font-display text-3xl font-semibold text-zinc-900">Resumen</h1>
+        <p className="mt-1 text-sm text-zinc-500">Tu panorama del día y del mes</p>
       </div>
 
-      <ChatIA soloInfo storageKey="resumen" clase="animate-fade-up" />
+      <ChatFlotante soloInfo storageKey="resumen" />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Tarjeta className="p-5 animate-fade-up">
-          <p className="text-sm font-semibold text-violet-300">Ingresos del mes</p>
-          <p className="mt-2 text-3xl font-semibold text-white">
+          <p className="text-sm font-semibold text-[var(--primary-700)]">Ingresos del mes</p>
+          <p className="mt-2 text-3xl font-semibold text-zinc-900">
             <Contador valor={datos.mes.ingresos} moneda />
           </p>
-          <p className="mt-1 text-xs text-zinc-400">
-            En {miMes} · <span className="text-emerald-300/90">pagado {fmtMoneda(datos.mes.pagos_recibidos)}</span>
+          <p className="mt-1 text-xs text-zinc-500">
+            En {miMes} · <span className="text-emerald-600">pagado {fmtMoneda(datos.mes.pagos_recibidos)}</span>
           </p>
         </Tarjeta>
         <Tarjeta className="p-5 animate-fade-up [animation-delay:80ms]">
-          <p className="text-sm font-semibold text-violet-300">Citas hoy</p>
-          <p className="mt-2 text-3xl font-semibold text-white">
+          <p className="text-sm font-semibold text-[var(--primary-700)]">Citas hoy</p>
+          <p className="mt-2 text-3xl font-semibold text-zinc-900">
             <Contador valor={datos.hoy.total_confirmadas} />
           </p>
-          <p className="mt-1 text-xs text-zinc-400">
-            confirmadas · <span className="text-rose-300/80">{datos.hoy.canceladas}</span> canceladas
+          <p className="mt-1 text-xs text-zinc-500">
+            confirmadas · <span className="text-rose-500">{datos.hoy.canceladas}</span> canceladas
           </p>
         </Tarjeta>
         <Tarjeta className="p-5 animate-fade-up [animation-delay:160ms]">
-          <p className="text-sm font-semibold text-violet-300">Próximas (7 días)</p>
-          <p className="mt-2 text-3xl font-semibold text-white">
+          <p className="text-sm font-semibold text-[var(--primary-700)]">Próximas (7 días)</p>
+          <p className="mt-2 text-3xl font-semibold text-zinc-900">
             <Contador valor={datos.proximas.length} />
           </p>
-          <p className="mt-1 text-xs text-zinc-400">citas confirmadas</p>
+          <p className="mt-1 text-xs text-zinc-500">citas confirmadas</p>
         </Tarjeta>
       </div>
 
       {datos.bloqueos_hoy.length > 0 && (
         <Tarjeta className="p-5 animate-fade-up">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-rose-300/80">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-rose-600">
             Bloqueos de hoy
           </h2>
           <ul className="space-y-2">
             {datos.bloqueos_hoy.map((b, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm text-zinc-300">
-                <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-                <span className="font-mono text-zinc-400">
+              <li key={i} className="flex items-center gap-2 text-sm text-zinc-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
+                <span className="font-mono text-zinc-500">
                   {fmtHora(b.start)}–{fmtHora(b.end)}
                 </span>{" "}
                 {b.motivo ? `· ${b.motivo}` : ""}
@@ -308,7 +308,7 @@ export function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Tarjeta className="p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Citas de hoy</h2>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Citas de hoy</h2>
             <span className="font-mono text-xs text-zinc-500">
               {new Intl.DateTimeFormat("es", {
                 weekday: "long",
@@ -319,7 +319,7 @@ export function Dashboard() {
             </span>
           </div>
           {datos.hoy.citas.length === 0 ? (
-            <p className="text-sm text-zinc-400">No tienes citas confirmadas hoy.</p>
+            <p className="text-sm text-zinc-500">No tienes citas confirmadas hoy.</p>
           ) : (
             <ul className="space-y-2">
               {datos.hoy.citas.map((c) => (
@@ -329,24 +329,24 @@ export function Dashboard() {
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-zinc-100">
-                        <span className="font-mono text-violet-300">{fmtHora(c.start)}</span> ·{" "}
+                      <p className="text-sm font-semibold text-zinc-800">
+                        <span className="font-mono text-[var(--primary-700)]">{fmtHora(c.start)}</span> ·{" "}
                         {c.cliente.nombre}
                       </p>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-zinc-500">
                         {c.servicio.nombre} ({c.servicio.duracion_min} min)
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
                       <span
                         className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                          PAGO_CHIP[c.estado_pago ?? "pendiente"] ?? "bg-white/5 text-zinc-300"
+                          PAGO_CHIP[c.estado_pago ?? "pendiente"] ?? "bg-zinc-50 text-zinc-500"
                         }`}
                       >
                         {c.estado_pago ?? "pendiente"}
                       </span>
                       <span
-                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${COLORES[c.estado] ?? "bg-white/10 text-zinc-300"}`}
+                        className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${COLORES[c.estado] ?? "bg-zinc-100 text-zinc-600"}`}
                       >
                         {ETIQUETAS[c.estado] ?? c.estado}
                       </span>
@@ -396,22 +396,22 @@ export function Dashboard() {
 
         <Tarjeta className="p-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Próximas citas</h2>
-            <Link href="/panel" className="text-xs font-semibold text-violet-300 hover:text-violet-200 hover:underline">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Próximas citas</h2>
+            <Link href="/panel" className="text-xs font-semibold text-[var(--primary-600)] hover:text-[var(--primary-700)] hover:underline">
               Ver calendario
             </Link>
           </div>
           {datos.proximas.length === 0 ? (
-            <p className="text-sm text-zinc-400">No hay citas confirmadas en los próximos 7 días.</p>
+            <p className="text-sm text-zinc-500">No hay citas confirmadas en los próximos 7 días.</p>
           ) : (
             <ul className="space-y-2">
               {datos.proximas.slice(0, 6).map((c) => (
-                <li key={c.id} className="glass rounded-xl px-3 py-2 animate-card-in">
-                  <p className="text-sm font-semibold text-zinc-100">
-                    <span className="font-mono text-violet-300">{fmtFecha(c.start)}</span> ·{" "}
+                <li key={c.id} className="rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2 animate-card-in">
+                  <p className="text-sm font-semibold text-zinc-800">
+                    <span className="font-mono text-[var(--primary-700)]">{fmtFecha(c.start)}</span> ·{" "}
                     {fmtHora(c.start)} · {c.cliente.nombre}
                   </p>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-zinc-500">
                     {c.servicio.nombre} ·{" "}
                     <span className="font-mono">
                       {Number(c.precio_servicio ?? c.servicio.precio).toFixed(2)}
@@ -436,14 +436,14 @@ export function Dashboard() {
       <Tarjeta className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-violet-300">Mensajes</h2>
-            <p className="mt-1 text-xs text-zinc-400">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Mensajes</h2>
+            <p className="mt-1 text-xs text-zinc-500">
               Conversaciones con tus clientes sobre sus citas.
             </p>
           </div>
           <Link
             href="/panel/mensajes"
-            className="rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-400/100"
+            className="rounded-xl bg-[var(--primary-600)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--primary-700)]"
           >
             Ver y responder mensajes
           </Link>
@@ -452,12 +452,12 @@ export function Dashboard() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Tarjeta className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-violet-300">Estadísticas del mes</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Estadísticas del mes</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             {Object.entries(ETIQUETAS).map(([k, v]) => (
-              <div key={k} className="glass rounded-xl px-4 py-3">
-                <p className="text-xs text-zinc-400">{v}</p>
-                <p className="mt-1 text-xl font-semibold text-white">
+              <div key={k} className="rounded-xl border border-zinc-100 bg-zinc-50 px-4 py-3">
+                <p className="text-xs text-zinc-500">{v}</p>
+                <p className="mt-1 text-xl font-semibold text-zinc-900">
                   <Contador valor={datos.mes.cuenta[k] ?? 0} />
                 </p>
                 <span className={`mt-2 block h-1 w-6 rounded-full ${DOT[k]}`} />
@@ -467,17 +467,17 @@ export function Dashboard() {
         </Tarjeta>
 
         <Tarjeta className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-violet-300">Por servicio</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Por servicio</h2>
           {datos.mes.desglose_servicios.length === 0 ? (
-            <p className="text-sm text-zinc-400">Sin actividad en el mes.</p>
+            <p className="text-sm text-zinc-500">Sin actividad en el mes.</p>
           ) : (
             <ul className="space-y-1.5">
               {datos.mes.desglose_servicios.map((d) => (
                 <li key={d.servicio_id || d.servicio} className="flex items-center justify-between text-sm">
-                  <span className="text-zinc-300">
-                    {d.servicio} <span className="text-zinc-500">({d.cantidad})</span>
+                  <span className="text-zinc-600">
+                    {d.servicio} <span className="text-zinc-400">({d.cantidad})</span>
                   </span>
-                  <span className="font-mono text-zinc-100">{fmtMoneda(d.ingresos)}</span>
+                  <span className="font-mono text-zinc-800">{fmtMoneda(d.ingresos)}</span>
                 </li>
               ))}
             </ul>
@@ -485,8 +485,8 @@ export function Dashboard() {
         </Tarjeta>
 
         <Tarjeta className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-violet-300">Exportar del mes</h2>
-          <p className="mb-3 text-xs text-zinc-400">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Exportar del mes</h2>
+          <p className="mb-3 text-xs text-zinc-500">
             {datos.mes.total} citas en {miMes}.
           </p>
           <div className="grid gap-2">
@@ -502,14 +502,14 @@ export function Dashboard() {
 
       {datos.mes.desglose_profesionales.length > 1 && (
         <Tarjeta className="p-5">
-          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-violet-300">Por profesional</h2>
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">Por profesional</h2>
           <ul className="space-y-1.5">
             {datos.mes.desglose_profesionales.map((d) => (
               <li key={d.profesional_id} className="flex items-center justify-between text-sm">
-                <span className="text-zinc-300">
-                  {d.profesional} <span className="text-zinc-500">({d.cantidad})</span>
+                <span className="text-zinc-600">
+                  {d.profesional} <span className="text-zinc-400">({d.cantidad})</span>
                 </span>
-                <span className="font-mono text-zinc-100">{fmtMoneda(d.ingresos)}</span>
+                <span className="font-mono text-zinc-800">{fmtMoneda(d.ingresos)}</span>
               </li>
             ))}
           </ul>
@@ -567,30 +567,30 @@ function ModalPago({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="glass-strong w-full max-w-md rounded-3xl p-5 text-zinc-100 shadow-2xl animate-scale-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
         <div className="mb-1 flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold text-white">Registrar pago</h3>
+          <h3 className="font-display text-lg font-semibold text-zinc-900">Registrar pago</h3>
           <button
             onClick={onCancel}
-            className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-white/10"
+            className="rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
             aria-label="Cerrar"
           >
             ✕
           </button>
         </div>
-        <p className="text-xs text-violet-200/70">
+        <p className="text-xs text-zinc-500">
           {cita.cliente.nombre} · {cita.servicio.nombre}
         </p>
-        <div className="mt-2 rounded-xl bg-white/[0.06] px-3 py-2 text-xs text-zinc-300">
-          Precio <span className="font-mono text-violet-200">{fmtMoneda(precio)}</span>
-          <span className="mx-2 text-zinc-500">·</span>
-          Pagado <span className="font-mono text-emerald-200">{fmtMoneda(anticipo)}</span>
-          <span className="mx-2 text-zinc-500">·</span>
-          Resta <span className="font-mono text-amber-200">{fmtMoneda(pendiente)}</span>
+        <div className="mt-2 rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+          Precio <span className="font-mono text-[var(--primary-700)]">{fmtMoneda(precio)}</span>
+          <span className="mx-2 text-zinc-400">·</span>
+          Pagado <span className="font-mono text-emerald-600">{fmtMoneda(anticipo)}</span>
+          <span className="mx-2 text-zinc-400">·</span>
+          Resta <span className="font-mono text-amber-600">{fmtMoneda(pendiente)}</span>
         </div>
 
-        <label className="mt-4 block text-xs font-semibold text-zinc-400">Monto</label>
+        <label className="mt-4 block text-xs font-semibold text-zinc-500">Monto</label>
         <input
           type="number"
           autoFocus
@@ -600,14 +600,14 @@ function ModalPago({
           step="0.01"
           onChange={(e) => setMonto(e.target.value)}
           placeholder={`Monto (máx. ${fmtMoneda(Math.max(0, precio - anticipo))})`}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+          className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
         />
 
-        <label className="mt-3 block text-xs font-semibold text-zinc-400">Método</label>
+        <label className="mt-3 block text-xs font-semibold text-zinc-500">Método</label>
         <select
           value={metodo}
           onChange={(e) => setMetodo(e.target.value)}
-          className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+          className="mt-1 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-[var(--primary-400)]"
         >
           <option value="efectivo">Efectivo</option>
           <option value="tarjeta">Tarjeta (débito/crédito)</option>
@@ -620,11 +620,11 @@ function ModalPago({
             value={otro}
             onChange={(e) => setOtro(e.target.value)}
             placeholder="Ej: bonificación, convenio…"
-            className="mt-2 w-full rounded-xl border border-white/10 bg-white/[0.06] px-3.5 py-2.5 text-sm text-zinc-100 outline-none focus:border-violet-400"
+            className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none focus:border-[var(--primary-400)]"
           />
         )}
 
-        {error && <p className="mt-2 text-sm text-rose-300">{error}</p>}
+        {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
 
         <div className="mt-5 flex gap-2">
           <Boton variante="primario" className="flex-1" disabled={enviando} onClick={enviar}>

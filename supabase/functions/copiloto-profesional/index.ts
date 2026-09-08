@@ -22,7 +22,7 @@ REGLAS:
 - El profesional autenticado es quien pregunta; actúa solo sobre sus citas.
 - Puedes registrar pagos (con registrar_pago), ver los mensajes del cliente de una cita (con consultar_mensajes) y enviar avisos al cliente (con enviar_aviso).
 - Los cobros reflejan el estado de pago de cada cita (pendiente, parcial o pagado) y el anticipo; responde con esos datos cuando pregunten por dinero cobrado.
-- El profesional puede configurar su propia disponibilidad semanal y los servicios que ofrece. Solo el admin puede modificar el catálogo, invitar profesionales, gestionar el equipo (ver/editar/desactivar/eliminar profesionales, asignarles servicios) y configurar el negocio.
+- El profesional puede configurar su propia disponibilidad semanal y los servicios que ofrece. Solo el admin puede modificar el catálogo, gestionar cargos y categorías, invitar profesionales, gestionar el equipo (ver/editar/desactivar/eliminar profesionales, asignarles servicios) y configurar el negocio.
 - NUNCA preguntes al profesional por la fecha u hora actual: ya la conoces.
 - Para fechas usa formato AAAA-MM-DD; para horas, ISO 8601.
 - Responde breve y en español.`;
@@ -146,7 +146,7 @@ const herramientas: ToolDef[] = [
   },
   {
     name: "editar_catalogo",
-    description: "Crea, actualiza o elimina un servicio del catálogo (solo el admin). Con 'eliminar' true borra el servicio si no tiene citas activas; si no, desactívalo con activo=false. Opcionalmente asigna profesionales con profesionales_ids.",
+    description: "Crea, actualiza o elimina un servicio del catálogo (solo el admin). Con 'eliminar' true borra el servicio si no tiene citas activas; si no, desactívalo con activo=false. Opcionalmente asigna profesionales con profesionales_ids y el cargo requerido con cargo_requerido (debe existir en el catálogo de cargos).",
     parameters: {
       type: "object",
       properties: {
@@ -158,6 +158,7 @@ const herramientas: ToolDef[] = [
         duracion_min: { type: "number" },
         buffer_min: { type: "number" },
         activo: { type: "boolean" },
+        cargo_requerido: { type: "string", description: "Nombre del cargo necesario (null para eliminar)" },
         eliminar: { type: "boolean" },
         profesionales_ids: { type: "array", items: { type: "string" } },
       },
@@ -226,6 +227,19 @@ const herramientas: ToolDef[] = [
       type: "object",
       properties: { id: { type: "string" } },
       required: ["id"],
+    },
+  },
+  {
+    name: "gestionar_cargos",
+    description: "Gestiona el catálogo de cargos del negocio (solo el admin para crear/renombrar/eliminar). 'listar' devuelve los cargos con el flag en_uso (si algún profesional o servicio lo usa). Crear: accion='crear' y nombre. Renombrar: accion='renombrar', id y nuevo nombre; se propaga a profesionales y servicios. Eliminar: accion='eliminar' con el id; falla si el cargo está en uso.",
+    parameters: {
+      type: "object",
+      properties: {
+        accion: { type: "string", enum: ["listar", "crear", "renombrar", "eliminar"] },
+        id: { type: "string", description: "UUID del cargo (para renombrar/eliminar)" },
+        nombre: { type: "string", description: "Nombre del cargo" },
+      },
+      required: ["accion"],
     },
   },
   {
@@ -361,6 +375,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
             "eliminar_profesional",
             "asignar_servicios_profesional",
             "reenviar_invitacion_profesional",
+            "gestionar_cargos",
             "crear_cita_profesional",
             "reprogramar_cita_profesional",
             "cambiar_estado_cita",
@@ -495,7 +510,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       return { ok: true };
     },
     consultar_catalogo: async () => {
-      const { data } = await admin.from("servicios").select("id, nombre, descripcion, precio, duracion_min, buffer_min, categoria").eq("activo", true);
+      const { data } = await admin.from("servicios").select("id, nombre, descripcion, precio, duracion_min, buffer_min, categoria, cargo_requerido").eq("activo", true);
       return { servicios: data ?? [] };
     },
     crear_cita_profesional: async (args) => {
@@ -732,6 +747,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
         nombre: z.string().min(1).max(120).optional(),
         descripcion: z.string().max(500).optional().nullable(),
         categoria: z.string().max(60).optional().nullable(),
+        cargo_requerido: z.string().max(100).optional().nullable(),
         precio: z.number().min(0).optional(),
         duracion_min: z.number().int().min(1).optional(),
         buffer_min: z.number().int().min(0).optional(),
@@ -761,8 +777,8 @@ export async function copilotoRequest(req: Request): Promise<Response> {
 
       if (
         d.nombre === undefined && d.descripcion === undefined && d.categoria === undefined &&
-        d.precio === undefined && d.duracion_min === undefined && d.buffer_min === undefined &&
-        d.activo === undefined && !servicioId && !d.profesionales_ids
+        d.cargo_requerido === undefined && d.precio === undefined && d.duracion_min === undefined &&
+        d.buffer_min === undefined && d.activo === undefined && !servicioId && !d.profesionales_ids
       ) {
         return { error: "Sin cambios." };
       }
@@ -771,10 +787,16 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       if (d.nombre !== undefined) campos.nombre = d.nombre;
       if (d.descripcion !== undefined) campos.descripcion = d.descripcion;
       if (d.categoria !== undefined) campos.categoria = await asegurarCategoria(d.categoria);
-      if (d.precio !== undefined) campos.precio = d.precio;
-      if (d.duracion_min !== undefined) campos.duracion_min = d.duracion_min;
-      if (d.buffer_min !== undefined) campos.buffer_min = d.buffer_min;
-      if (d.activo !== undefined) campos.activo = d.activo;
+      if (d.cargo_requerido !== undefined) {
+        const cargo = d.cargo_requerido ? String(d.cargo_requerido).trim() : null;
+        if (cargo) {
+          const { data: existe } = await admin.from("cargos").select("id").eq("nombre", cargo).maybeSingle();
+          if (!existe) {
+            return { error: `El cargo "${cargo}" no existe. Créalo primero con gestionar_cargos.` };
+          }
+        }
+        campos.cargo_requerido = cargo;
+      }
 
       let targetId = servicioId;
       if (targetId) {
@@ -939,6 +961,53 @@ export async function copilotoRequest(req: Request): Promise<Response> {
         link_activacion: `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/activar-cuenta?token=${token}`,
       }).catch(() => {});
       return { ok: true };
+    },
+    gestionar_cargos: async (args) => {
+      if (soloInfo) return { error: "Modo información: no se permiten acciones." };
+      const accion = String(args.accion ?? "");
+      if (accion === "listar") {
+        const [cargosRes, profRes, servRes] = await Promise.all([
+          admin.from("cargos").select("id, nombre").order("nombre"),
+          admin.from("profesionales").select("cargo").not("cargo", "is", null),
+          admin.from("servicios").select("cargo_requerido").not("cargo_requerido", "is", null),
+        ]);
+        const usados = new Set<string>();
+        for (const p of profRes.data ?? []) if (p.cargo) usados.add(p.cargo);
+        for (const s of servRes.data ?? []) if (s.cargo_requerido) usados.add(s.cargo_requerido);
+        return { cargos: (cargosRes.data ?? []).map((c) => ({ id: c.id, nombre: c.nombre, en_uso: usados.has(c.nombre) })) };
+      }
+      if (!esAdmin) return { error: "Solo el administrador puede gestionar cargos." };
+      if (accion === "crear") {
+        const nombre = String(args.nombre ?? "").trim();
+        if (!nombre) return { error: "Falta el nombre del cargo." };
+        const { data: dup } = await admin.from("cargos").select("id").eq("nombre", nombre).maybeSingle();
+        if (dup) return { error: "Ese cargo ya existe." };
+        const { error } = await admin.from("cargos").insert({ nombre });
+        if (error) return { error: "No se pudo crear el cargo." };
+        return { ok: true };
+      }
+      if (accion === "renombrar") {
+        const id = String(args.id ?? "");
+        const nombre = String(args.nombre ?? "").trim();
+        if (!id || !nombre) return { error: "Faltan el id y el nuevo nombre." };
+        const { data: actual } = await admin.from("cargos").select("nombre").eq("id", id).single();
+        if (!actual) return { error: "Cargo no encontrado." };
+        const { data: dup } = await admin.from("cargos").select("id").eq("nombre", nombre).neq("id", id).maybeSingle();
+        if (dup) return { error: "Ya existe un cargo con ese nombre." };
+        const { error } = await admin.from("cargos").update({ nombre }).eq("id", id);
+        if (error) return { error: "No se pudo renombrar el cargo." };
+        await admin.from("profesionales").update({ cargo: nombre }).eq("cargo", actual.nombre);
+        await admin.from("servicios").update({ cargo_requerido: nombre }).eq("cargo_requerido", actual.nombre);
+        return { ok: true };
+      }
+      if (accion === "eliminar") {
+        const id = String(args.id ?? "");
+        if (!id) return { error: "Falta el id." };
+        const { error } = await admin.from("cargos").delete().eq("id", id);
+        if (error) return { error: "No se puede eliminar: hay profesionales o servicios usando este cargo." };
+        return { ok: true };
+      }
+      return { error: "Acción inválida." };
     },
     consultar_mi_configuracion: async () => {
       const [dispRes, servRes] = await Promise.all([

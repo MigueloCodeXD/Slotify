@@ -164,3 +164,44 @@ export function Contador({
 export function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`skeleton ${className}`} aria-hidden />;
 }
+
+/* ---- Modal de confirmación (reemplaza window.confirm) ---- */
+export function ModalConfirmar({
+  titulo,
+  mensaje,
+  etiqueta,
+  icono = "🗑",
+  guardando,
+  onCerrar,
+  onConfirmar,
+}: {
+  titulo: string;
+  mensaje: string;
+  etiqueta: string;
+  icono?: string;
+  guardando: boolean;
+  onCerrar: () => void;
+  onConfirmar: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="flex min-h-full items-center justify-center py-6">
+        <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-xl">
+            {icono}
+          </div>
+          <h3 className="font-display text-lg font-semibold text-zinc-900">{titulo}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-500">{mensaje}</p>
+          <div className="mt-5 flex gap-2">
+            <Boton variante="peligro" className="flex-1" disabled={guardando} onClick={onConfirmar}>
+              {guardando ? "Eliminando…" : etiqueta}
+            </Boton>
+            <Boton variante="claro" disabled={guardando} onClick={onCerrar}>
+              Cancelar
+            </Boton>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

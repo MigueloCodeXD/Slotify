@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
+import { Boton, Campo, ModalConfirmar, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
 import { serviciosPublicos } from "@/lib/supabaseClient";
@@ -35,6 +35,8 @@ export function Profesionales() {
   const [invitar, setInvitar] = useState({ nombre: "", email: "" });
 
   const [editando, setEditando] = useState<ProfGestion | null>(null);
+  const [eliminando, setEliminando] = useState<ProfGestion | null>(null);
+  const [eliminandoEnProgreso, setEliminandoEnProgreso] = useState(false);
   const [form, setForm] = useState({ nombre: "", email: "", telefono: "", cargo: "", rol: "profesional", activo: true });
   const [cargos, setCargos] = useState<{ id: string; nombre: string }[]>([]);
 
@@ -120,15 +122,25 @@ export function Profesionales() {
     }
   }
 
-  async function eliminarProfesional(p: ProfGestion) {
-    if (!window.confirm(`¿Eliminar a "${p.nombre}" del negocio?`)) return;
+  function eliminarProfesional(p: ProfGestion) {
+    setEliminando(p);
+  }
+
+  async function confirmarEliminarProfesional() {
+    const p = eliminando;
+    if (!p) return;
+    if (eliminandoEnProgreso) return;
+    setEliminandoEnProgreso(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge("gestionar-profesionales", { accion: "eliminar", id: p.id }, token);
       notificar("Profesional eliminado.", "exito");
+      setEliminando(null);
       await cargar();
     } catch (err) {
       notificar((err as Error).message, "error");
+    } finally {
+      setEliminandoEnProgreso(false);
     }
   }
 
@@ -317,6 +329,19 @@ export function Profesionales() {
           </Tarjeta>
         ))}
       </div>
+
+      {eliminando && (
+        <ModalConfirmar
+          titulo="Eliminar profesional"
+          mensaje={`¿Seguro que quieres eliminar a "${eliminando.nombre}" del negocio? Esta acción no se puede deshacer.`}
+          etiqueta="Eliminar profesional"
+          guardando={eliminandoEnProgreso}
+          onCerrar={() => {
+            if (!eliminandoEnProgreso) setEliminando(null);
+          }}
+          onConfirmar={confirmarEliminarProfesional}
+        />
+      )}
 
       {editando && (
         <Modal onCerrar={() => setEditando(null)}>

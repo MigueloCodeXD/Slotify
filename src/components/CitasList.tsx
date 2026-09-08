@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Boton, ChipEstado, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
+import { useToast } from "@/components/Toast";
 import { TZ } from "@/lib/zonaHoraria";
 import type { CitaCliente, Aviso } from "@/types";
 
@@ -47,6 +48,7 @@ export function CitasList({
   sesion: string;
   onEnviado?: () => void;
 }) {
+  const { notificar } = useToast();
   const [contacto, setContacto] = useState<{ citaId: string; mensaje: string; enviando: boolean } | null>(null);
   const [errorContacto, setErrorContacto] = useState<string | null>(null);
 
@@ -60,7 +62,7 @@ export function CitasList({
         cita_id: contacto.citaId,
         mensaje: contacto.mensaje,
       });
-      alert(res.mensaje);
+      notificar(res.mensaje, "exito");
       setContacto(null);
     } catch (e) {
       setErrorContacto((e as Error).message);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Spinner, Tarjeta } from "@/components/ui";
+import { ModalConfirmar, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
 import { useToast } from "@/components/Toast";
@@ -67,6 +67,8 @@ export function Clientes() {
   const [busqueda, setBusqueda] = useState("");
   const [cargando, setCargando] = useState(true);
   const [abierto, setAbierto] = useState<string | null>(null);
+  const [eliminando, setEliminando] = useState<ClienteLibreta | null>(null);
+  const [eliminandoEnProgreso, setEliminandoEnProgreso] = useState(false);
 
   async function cargar(q = "") {
     try {
@@ -98,17 +100,26 @@ export function Clientes() {
 
   const formatter = new Intl.NumberFormat("es", { style: "currency", currency: "USD" });
 
-  async function eliminarCliente(c: ClienteLibreta) {
-    const citas = c.total === 1 ? "1 cita" : `${c.total} citas`;
-    if (!window.confirm(`¿Eliminar a "${c.nombre}"? Se borrarán sus ${citas} e historial de forma definitiva.`)) return;
+  function eliminarCliente(c: ClienteLibreta) {
+    setEliminando(c);
+  }
+
+  async function confirmarEliminarCliente() {
+    const c = eliminando;
+    if (!c) return;
+    if (eliminandoEnProgreso) return;
+    setEliminandoEnProgreso(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge("libreta-clientes", { accion: "eliminar", id: c.id }, token);
       notificar("Cliente eliminado.", "exito");
+      setEliminando(null);
       if (abierto === c.id) setAbierto(null);
       await cargar(busqueda);
     } catch (err) {
       notificar((err as Error).message, "error");
+    } finally {
+      setEliminandoEnProgreso(false);
     }
   }
 
@@ -209,6 +220,19 @@ export function Clientes() {
           </ul>
         )}
       </Tarjeta>
+
+      {eliminando && (
+        <ModalConfirmar
+          titulo="Eliminar cliente"
+          mensaje={`¿Seguro que quieres eliminar a "${eliminando.nombre}"? Se borrarán sus ${eliminando.total === 1 ? "1 cita" : `${eliminando.total} citas`} e historial de forma definitiva.`}
+          etiqueta="Eliminar cliente"
+          guardando={eliminandoEnProgreso}
+          onCerrar={() => {
+            if (!eliminandoEnProgreso) setEliminando(null);
+          }}
+          onConfirmar={confirmarEliminarCliente}
+        />
+      )}
     </div>
   );
 }

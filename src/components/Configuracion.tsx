@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
+import { Boton, Campo, ModalConfirmar, Spinner, Tarjeta } from "@/components/ui";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion, getRolProfesional } from "@/lib/sesion";
 import { configPublica, serviciosPublicos } from "@/lib/supabaseClient";
@@ -47,6 +47,9 @@ export function Configuracion() {
   const [nuevoCargo, setNuevoCargo] = useState("");
   const [renombrandoCargo, setRenombrandoCargo] = useState<{ id: string; nombre: string } | null>(null);
   const [eliminandoCargo, setEliminandoCargo] = useState<{ id: string; nombre: string } | null>(null);
+  const [eliminandoCategoria, setEliminandoCategoria] = useState<{ id: string; nombre: string } | null>(null);
+  const [eliminandoServicio, setEliminandoServicio] = useState<ServicioPublico | null>(null);
+  const [nuevaCategoriaModal, setNuevaCategoriaModal] = useState<"servicio" | "editar" | null>(null);
   const [renombrandoCategoria, setRenombrandoCategoria] = useState<{ id: string; nombre: string } | null>(null);
   const [disponibilidad, setDisponibilidad] = useState<DiaDisponibilidad[]>(() =>
     DIAS.map((_, i) => ({ dia_semana: i, ...DIA_VACIO }))
@@ -402,20 +405,30 @@ export function Configuracion() {
     }
   }
 
-  async function eliminarCategoria(c: { id: string; nombre: string; en_uso?: boolean }) {
+  function eliminarCategoria(c: { id: string; nombre: string; en_uso?: boolean }) {
     if (c.en_uso) {
       notificar("No se puede eliminar: hay servicios con esta categoría.", "error");
       return;
     }
-    if (!window.confirm(`¿Eliminar la categoría "${c.nombre}"?`)) return;
+    setEliminandoCategoria({ id: c.id, nombre: c.nombre });
+  }
+
+  async function confirmarEliminarCategoria() {
+    const c = eliminandoCategoria;
+    if (!c) return;
+    if (enviando) return;
+    setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
       await llamarEdge("gestionar-categorias", { accion: "eliminar", id: c.id }, token);
       notificar("Categoría eliminada.", "exito");
+      setEliminandoCategoria(null);
       const cats = await llamarEdge<{ categorias: { id: string; nombre: string }[] }>("gestionar-categorias", { accion: "listar" }, token);
       setCategorias(cats.categorias ?? []);
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -555,15 +568,25 @@ export function Configuracion() {
     }
   }
 
-  async function eliminarServicio(s: ServicioPublico) {
-    if (!window.confirm(`¿Eliminar el servicio "${s.nombre}" del catálogo?`)) return;
+  function eliminarServicio(s: ServicioPublico) {
+    setEliminandoServicio(s);
+  }
+
+  async function confirmarEliminarServicio() {
+    const s = eliminandoServicio;
+    if (!s) return;
+    if (enviando) return;
+    setEnviando(true);
     try {
       const token = (await getTokenSesion()) ?? undefined;
       await llamarEdge("editar-catalogo", { servicio_id: s.id, eliminar: true }, token);
       notificar("Servicio eliminado.", "exito");
+      setEliminandoServicio(null);
       await refrescarServicios();
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -1038,11 +1061,7 @@ export function Configuracion() {
                   value={nuevoServicio.categoria}
                   onChange={(e) => {
                     if (e.target.value === "__nueva__") {
-                      const nombre = window.prompt("Nueva categoría");
-                      if (nombre && nombre.trim()) void crearCategoriaDesdeForm(nombre).then((creada) => {
-                        if (creada) setNuevoServicio((p) => ({ ...p, categoria: creada }));
-                      });
-                      else e.target.value = "";
+                      setNuevaCategoriaModal("servicio");
                       return;
                     }
                     setNuevoServicio({ ...nuevoServicio, categoria: e.target.value });
@@ -1288,12 +1307,7 @@ export function Configuracion() {
                 value={formServicio.categoria}
                 onChange={(e) => {
                   if (e.target.value === "__nueva__") {
-                    const nombre = window.prompt("Nueva categoría");
-                    if (nombre && nombre.trim()) {
-                      void crearCategoriaDesdeForm(nombre).then((creada) => {
-                        if (creada) setFormServicio((p) => ({ ...p, categoria: creada }));
-                      });
-                    }
+                    setNuevaCategoriaModal("editar");
                     return;
                   }
                   setFormServicio({ ...formServicio, categoria: e.target.value });
@@ -1369,6 +1383,50 @@ export function Configuracion() {
           onConfirmar={confirmarEliminarCargo}
         />
       )}
+
+      {eliminandoCategoria && (
+        <ModalConfirmar
+          titulo="Eliminar categoría"
+          mensaje={`¿Seguro que quieres eliminar la categoría "${eliminandoCategoria.nombre}"? Esta acción no se puede deshacer.`}
+          etiqueta="Eliminar categoría"
+          guardando={enviando}
+          onCerrar={() => {
+            if (!enviando) setEliminandoCategoria(null);
+          }}
+          onConfirmar={confirmarEliminarCategoria}
+        />
+      )}
+
+      {eliminandoServicio && (
+        <ModalConfirmar
+          titulo="Eliminar servicio"
+          mensaje={`¿Seguro que quieres eliminar "${eliminandoServicio.nombre}" del catálogo? Esta acción no se puede deshacer.`}
+          etiqueta="Eliminar servicio"
+          guardando={enviando}
+          onCerrar={() => {
+            if (!enviando) setEliminandoServicio(null);
+          }}
+          onConfirmar={confirmarEliminarServicio}
+        />
+      )}
+
+      {nuevaCategoriaModal && (
+        <ModalRenombrar
+          titulo="Nueva categoría"
+          valorInicial=""
+          onCerrar={() => setNuevaCategoriaModal(null)}
+          onConfirmar={async (nombre) => {
+            const creada = await crearCategoriaDesdeForm(nombre);
+            if (!creada) return;
+            if (nuevaCategoriaModal === "servicio") {
+              setNuevoServicio((p) => ({ ...p, categoria: creada }));
+            } else {
+              setFormServicio((p) => ({ ...p, categoria: creada }));
+            }
+            setNuevaCategoriaModal(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -1439,44 +1497,6 @@ function ModalRenombrar({
               </Boton>
             </div>
           </form>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModalConfirmar({
-  titulo,
-  mensaje,
-  etiqueta,
-  guardando,
-  onCerrar,
-  onConfirmar,
-}: {
-  titulo: string;
-  mensaje: string;
-  etiqueta: string;
-  guardando: boolean;
-  onCerrar: () => void;
-  onConfirmar: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="flex min-h-full items-center justify-center py-6">
-        <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
-          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-xl">
-            🗑
-          </div>
-          <h3 className="font-display text-lg font-semibold text-zinc-900">{titulo}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-zinc-500">{mensaje}</p>
-          <div className="mt-5 flex gap-2">
-            <Boton variante="peligro" className="flex-1" disabled={guardando} onClick={onConfirmar}>
-              {guardando ? "Eliminando…" : etiqueta}
-            </Boton>
-            <Boton variante="claro" disabled={guardando} onClick={onCerrar}>
-              Cancelar
-            </Boton>
-          </div>
         </div>
       </div>
     </div>

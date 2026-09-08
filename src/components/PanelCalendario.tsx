@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Boton, Campo, Skeleton, Spinner, Tarjeta } from "@/components/ui";
+import { Boton, Campo, ModalConfirmar, Skeleton, Spinner, Tarjeta } from "@/components/ui";
 import { Copiloto } from "@/components/Copiloto";
 import NuevaCita from "@/components/NuevaCita";
 import { useToast } from "@/components/Toast";
@@ -99,6 +99,8 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
   const [bloqueoForm, setBloqueoForm] = useState({ fecha: "", hasta: "", inicio: "", fin: "", motivo: "" });
   const [bloqueoEditId, setBloqueoEditId] = useState<string | null>(null);
   const [bloqueoOcupado, setBloqueoOcupado] = useState(false);
+  const [bloqueoEliminar, setBloqueoEliminar] = useState<Bloqueo | null>(null);
+  const [bloqueoEliminando, setBloqueoEliminando] = useState(false);
 
   const [reproId, setReproId] = useState<string | null>(null);
   const [reproDia, setReproDia] = useState("");
@@ -221,16 +223,25 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
     setBloqueoOcupado(false);
   }
 
-  async function eliminarBloqueo(b: Bloqueo) {
+  function eliminarBloqueo(b: Bloqueo) {
+    setBloqueoEliminar(b);
+  }
+
+  async function confirmarEliminarBloqueo() {
+    const b = bloqueoEliminar;
+    if (!b) return;
+    if (bloqueoEliminando) return;
+    setBloqueoEliminando(true);
     const token = (await getTokenSesion()) ?? undefined;
-    const confirmado = window.confirm(`¿Eliminar este bloqueo${b.motivo ? ` (${b.motivo})` : ""}?`);
-    if (!confirmado) return;
     try {
       await llamarEdge("eliminar-bloqueo", { id: b.id, profesional_id: profesionalIdTarget ?? undefined }, token);
       if (bloqueoEditId === b.id) cancelarEditarBloqueo();
+      setBloqueoEliminar(null);
       await cargar();
     } catch (err) {
       notificar((err as Error).message, "error");
+    } finally {
+      setBloqueoEliminando(false);
     }
   }
 
@@ -768,6 +779,20 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
       </Tarjeta>
 
       <Copiloto onRecargar={cargar} />
+
+      {/* ---- Confirmar eliminación de bloqueo ---- */}
+      {bloqueoEliminar && (
+        <ModalConfirmar
+          titulo="Eliminar bloqueo"
+          mensaje={`¿Seguro que quieres eliminar este bloqueo${bloqueoEliminar.motivo ? ` (${bloqueoEliminar.motivo})` : ""}?`}
+          etiqueta="Eliminar bloqueo"
+          guardando={bloqueoEliminando}
+          onCerrar={() => {
+            if (!bloqueoEliminando) setBloqueoEliminar(null);
+          }}
+          onConfirmar={confirmarEliminarBloqueo}
+        />
+      )}
 
       {/* ---- Reprogramar ---- */}
       {reproId && (() => {

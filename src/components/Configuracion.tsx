@@ -45,6 +45,8 @@ export function Configuracion() {
   const [misServicios, setMisServicios] = useState<string[]>([]);
   const [cargos, setCargos] = useState<{ id: string; nombre: string; en_uso?: boolean }[]>([]);
   const [nuevoCargo, setNuevoCargo] = useState("");
+  const [renombrandoCargo, setRenombrandoCargo] = useState<{ id: string; nombre: string } | null>(null);
+  const [renombrandoCategoria, setRenombrandoCategoria] = useState<{ id: string; nombre: string } | null>(null);
   const [disponibilidad, setDisponibilidad] = useState<DiaDisponibilidad[]>(() =>
     DIAS.map((_, i) => ({ dia_semana: i, ...DIA_VACIO }))
   );
@@ -371,19 +373,24 @@ export function Configuracion() {
     }
   }
 
-  async function renombrarCategoria(id: string, nombre: string) {
-    const nuevo = window.prompt("Nuevo nombre de la categoría", nombre);
-    if (!nuevo || nuevo.trim() === nombre) return;
+  function renombrarCategoria(c: { id: string; nombre: string }) {
+    setRenombrandoCategoria(c);
+  }
+
+  async function confirmarRenombrarCategoria(nombre: string) {
+    const c = renombrandoCategoria;
+    if (!c) return;
     if (enviando) return;
-    if (categorias.some((c) => c.id !== id && c.nombre.toLowerCase() === nuevo.trim().toLowerCase())) {
+    if (categorias.some((x) => x.id !== c.id && x.nombre.toLowerCase() === nombre.toLowerCase())) {
       notificar("Ya existe una categoría con ese nombre.", "error");
       return;
     }
     setEnviando(true);
     const token = (await getTokenSesion()) ?? undefined;
     try {
-      await llamarEdge("gestionar-categorias", { accion: "renombrar", id, nombre: nuevo.trim() }, token);
+      await llamarEdge("gestionar-categorias", { accion: "renombrar", id: c.id, nombre }, token);
       notificar("Categoría renombrada.", "exito");
+      setRenombrandoCategoria(null);
       const cats = await llamarEdge<{ categorias: { id: string; nombre: string }[] }>("gestionar-categorias", { accion: "listar" }, token);
       setCategorias(cats.categorias ?? []);
       await refrescarServicios();
@@ -438,21 +445,26 @@ export function Configuracion() {
     }
   }
 
-  async function renombrarCargo(c: { id: string; nombre: string }) {
-    const nuevo = window.prompt("Nuevo nombre del cargo", c.nombre);
-    if (!nuevo || nuevo.trim() === c.nombre) return;
+  function renombrarCargo(c: { id: string; nombre: string }) {
+    setRenombrandoCargo(c);
+  }
+
+  async function confirmarRenombrarCargo(nombre: string) {
+    const c = renombrandoCargo;
+    if (!c) return;
     if (enviando) return;
-    if (cargos.some((x) => x.id !== c.id && x.nombre.toLowerCase() === nuevo.trim().toLowerCase())) {
+    if (cargos.some((x) => x.id !== c.id && x.nombre.toLowerCase() === nombre.toLowerCase())) {
       notificar("Ya existe un cargo con ese nombre.", "error");
       return;
     }
     setEnviando(true);
     try {
-      await llamarEdge("gestionar-cargos", { accion: "renombrar", id: c.id, nombre: nuevo.trim() }, (await getTokenSesion()) ?? undefined);
+      await llamarEdge("gestionar-cargos", { accion: "renombrar", id: c.id, nombre }, (await getTokenSesion()) ?? undefined);
       notificar("Cargo renombrado.", "exito");
+      setRenombrandoCargo(null);
       await refrescarCargos();
       await refrescarServicios();
-      if (perfil.cargo === c.nombre) setPerfil((p) => ({ ...p, cargo: nuevo.trim() }));
+      if (perfil.cargo === c.nombre) setPerfil((p) => ({ ...p, cargo: nombre }));
     } catch (err) {
       notificar((err as Error).message, "error");
     } finally {
@@ -1086,7 +1098,7 @@ export function Configuracion() {
               >
                 {c.nombre}
                 <button
-                  onClick={() => renombrarCategoria(c.id, c.nombre)}
+                  onClick={() => renombrarCategoria(c)}
                   title="Renombrar"
                   className="text-zinc-400 transition hover:text-[var(--primary-600)]"
                 >
@@ -1316,22 +1328,95 @@ export function Configuracion() {
           </form>
         </ModalServicio>
       )}
+
+      {renombrandoCargo && (
+        <ModalRenombrar
+          titulo="Renombrar cargo"
+          valorInicial={renombrandoCargo.nombre}
+          onCerrar={() => setRenombrandoCargo(null)}
+          onConfirmar={confirmarRenombrarCargo}
+        />
+      )}
+
+      {renombrandoCategoria && (
+        <ModalRenombrar
+          titulo="Renombrar categoría"
+          valorInicial={renombrandoCategoria.nombre}
+          onCerrar={() => setRenombrandoCategoria(null)}
+          onConfirmar={confirmarRenombrarCategoria}
+        />
+      )}
     </div>
   );
 }
 
 function ModalServicio({ children, onCerrar }: { children: React.ReactNode; onCerrar: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
-        <button
-          onClick={onCerrar}
-          className="float-right rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
-          aria-label="Cerrar"
-        >
-          ✕
-        </button>
-        {children}
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="flex min-h-full items-center justify-center py-6">
+        <div className="relative w-full max-w-md rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
+          <button
+            onClick={onCerrar}
+            className="float-right rounded-lg px-2 py-1 text-zinc-400 transition hover:bg-zinc-100"
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalRenombrar({
+  titulo,
+  valorInicial,
+  onCerrar,
+  onConfirmar,
+}: {
+  titulo: string;
+  valorInicial: string;
+  onCerrar: () => void;
+  onConfirmar: (nombre: string) => void;
+}) {
+  const [nombre, setNombre] = useState(valorInicial);
+  const [guardando, setGuardando] = useState(false);
+
+  async function enviar(e: React.FormEvent) {
+    e.preventDefault();
+    const limpio = nombre.trim();
+    if (limpio.length < 1) return;
+    setGuardando(true);
+    try {
+      await onConfirmar(limpio);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="flex min-h-full items-center justify-center py-6">
+        <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
+          <h3 className="font-display text-lg font-semibold text-zinc-900">{titulo}</h3>
+          <form onSubmit={enviar} className="mt-4 space-y-4">
+            <input
+              autoFocus
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
+            />
+            <div className="flex gap-2">
+              <Boton type="submit" variante="primario" className="flex-1" disabled={guardando}>
+                {guardando ? "Guardando…" : "Guardar"}
+              </Boton>
+              <Boton variante="claro" onClick={onCerrar}>
+                Cancelar
+              </Boton>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

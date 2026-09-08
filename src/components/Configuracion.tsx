@@ -46,6 +46,7 @@ export function Configuracion() {
   const [cargos, setCargos] = useState<{ id: string; nombre: string; en_uso?: boolean }[]>([]);
   const [nuevoCargo, setNuevoCargo] = useState("");
   const [renombrandoCargo, setRenombrandoCargo] = useState<{ id: string; nombre: string } | null>(null);
+  const [eliminandoCargo, setEliminandoCargo] = useState<{ id: string; nombre: string } | null>(null);
   const [renombrandoCategoria, setRenombrandoCategoria] = useState<{ id: string; nombre: string } | null>(null);
   const [disponibilidad, setDisponibilidad] = useState<DiaDisponibilidad[]>(() =>
     DIAS.map((_, i) => ({ dia_semana: i, ...DIA_VACIO }))
@@ -472,19 +473,28 @@ export function Configuracion() {
     }
   }
 
-  async function eliminarCargo(c: { id: string; nombre: string; en_uso?: boolean }) {
+  function eliminarCargo(c: { id: string; nombre: string; en_uso?: boolean }) {
     if (c.en_uso) {
       notificar("No se puede eliminar: hay profesionales o servicios con este cargo.", "error");
       return;
     }
-    if (!window.confirm(`¿Eliminar el cargo "${c.nombre}"?`)) return;
-    const token = (await getTokenSesion()) ?? undefined;
+    setEliminandoCargo({ id: c.id, nombre: c.nombre });
+  }
+
+  async function confirmarEliminarCargo() {
+    const c = eliminandoCargo;
+    if (!c) return;
+    if (enviando) return;
+    setEnviando(true);
     try {
-      await llamarEdge("gestionar-cargos", { accion: "eliminar", id: c.id }, token);
+      await llamarEdge("gestionar-cargos", { accion: "eliminar", id: c.id }, (await getTokenSesion()) ?? undefined);
       notificar("Cargo eliminado.", "exito");
+      setEliminandoCargo(null);
       await refrescarCargos();
     } catch (e) {
       notificar((e as Error).message, "error");
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -1346,6 +1356,19 @@ export function Configuracion() {
           onConfirmar={confirmarRenombrarCategoria}
         />
       )}
+
+      {eliminandoCargo && (
+        <ModalConfirmar
+          titulo="Eliminar cargo"
+          mensaje={`¿Seguro que quieres eliminar el cargo "${eliminandoCargo.nombre}"? Esta acción no se puede deshacer.`}
+          etiqueta="Eliminar cargo"
+          guardando={enviando}
+          onCerrar={() => {
+            if (!enviando) setEliminandoCargo(null);
+          }}
+          onConfirmar={confirmarEliminarCargo}
+        />
+      )}
     </div>
   );
 }
@@ -1416,6 +1439,44 @@ function ModalRenombrar({
               </Boton>
             </div>
           </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalConfirmar({
+  titulo,
+  mensaje,
+  etiqueta,
+  guardando,
+  onCerrar,
+  onConfirmar,
+}: {
+  titulo: string;
+  mensaje: string;
+  etiqueta: string;
+  guardando: boolean;
+  onCerrar: () => void;
+  onConfirmar: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-zinc-900/50 p-4 backdrop-blur-sm animate-fade-in">
+      <div className="flex min-h-full items-center justify-center py-6">
+        <div className="w-full max-w-sm rounded-3xl border border-zinc-200 bg-white p-5 text-zinc-900 shadow-2xl animate-scale-in">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-rose-100 text-xl">
+            🗑
+          </div>
+          <h3 className="font-display text-lg font-semibold text-zinc-900">{titulo}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-500">{mensaje}</p>
+          <div className="mt-5 flex gap-2">
+            <Boton variante="peligro" className="flex-1" disabled={guardando} onClick={onConfirmar}>
+              {guardando ? "Eliminando…" : etiqueta}
+            </Boton>
+            <Boton variante="claro" disabled={guardando} onClick={onCerrar}>
+              Cancelar
+            </Boton>
+          </div>
         </div>
       </div>
     </div>

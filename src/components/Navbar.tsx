@@ -3,25 +3,22 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { configPublica } from "@/lib/supabaseClient";
 import { aplicarTema } from "@/lib/theme";
-import type { Config } from "@/types";
 
 export function Navbar() {
   const pathname = usePathname();
-  const [config, setConfig] = useState<Config | null>(null);
 
   useEffect(() => {
     configPublica().then((c) => {
-      const cfg = c.data as Config | null;
-      setConfig(cfg);
+      const cfg = c.data;
       if (cfg?.color_principal) aplicarTema(cfg.color_principal);
     });
   }, []);
 
-  const logo = config?.logo_url || "/logo.png";
-  const nombre = config?.nombre_negocio || "Slotify";
+  const logo = "/logo.png";
+  const nombre = "Slotify";
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200/70 bg-white/85 backdrop-blur-lg animate-fade-in">

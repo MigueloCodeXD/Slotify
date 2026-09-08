@@ -246,22 +246,28 @@ export function Agendar() {
                   onClick={() => setServicio(s)}
                   className="overflow-hidden rounded-2xl border border-zinc-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--primary-300)] hover:shadow-md"
                 >
-                  {s.imagen_url && (
-                    <div className="relative h-32 w-full bg-zinc-100">
-                      <Image src={s.imagen_url} alt={s.nombre} fill className="object-cover" />
-                    </div>
-                  )}
                   <div className="flex items-start justify-between gap-3 p-4">
-                    <div>
-                      <h3 className="font-bold text-zinc-900">{s.nombre}</h3>
-                      {s.cargo_requerido && (
-                        <p className="text-xs font-semibold text-[var(--primary-600)]">
-                          Requiere {s.cargo_requerido}
-                        </p>
+                    <div className="flex items-start gap-3">
+                      {s.imagen_url && (
+                        <Image
+                          src={s.imagen_url}
+                          alt={s.nombre}
+                          width={48}
+                          height={48}
+                          className="h-12 w-12 shrink-0 rounded-xl border border-zinc-200 bg-zinc-50 object-cover"
+                        />
                       )}
-                      <p className="mt-1 text-sm text-zinc-500">
-                        {s.duracion_min} min · ${s.precio}
-                      </p>
+                      <div>
+                        <h3 className="font-bold text-zinc-900">{s.nombre}</h3>
+                        {s.cargo_requerido && (
+                          <p className="text-xs font-semibold text-[var(--primary-600)]">
+                            Requiere {s.cargo_requerido}
+                          </p>
+                        )}
+                        <p className="mt-1 text-sm text-zinc-500">
+                          {s.duracion_min} min · ${s.precio}
+                        </p>
+                      </div>
                     </div>
                     <span className="rounded-full bg-[var(--primary-50)] px-2.5 py-1 text-xs font-bold text-[var(--primary-700)]">
                       Elegir

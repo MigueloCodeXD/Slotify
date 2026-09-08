@@ -136,14 +136,20 @@ export default function Home() {
                     className="group flex flex-col overflow-hidden p-0 animate-fade-up hover:-translate-y-1.5"
                     style={{ animationDelay: `${Math.min(gi, 2) * 150 + i * 80}ms` }}
                   >
-                    {s.imagen_url && (
-                      <div className="relative h-40 w-full shrink-0 overflow-hidden bg-zinc-100">
-                        <Image src={s.imagen_url} alt={s.nombre} fill className="object-cover transition duration-300 group-hover:scale-105" />
-                      </div>
-                    )}
                     <div className="flex flex-1 flex-col p-6">
                       <div className="mb-1 flex items-start justify-between gap-3">
-                        <h3 className="text-lg font-bold text-zinc-900">{s.nombre}</h3>
+                        <div className="flex items-start gap-3">
+                          {s.imagen_url && (
+                            <Image
+                              src={s.imagen_url}
+                              alt={s.nombre}
+                              width={48}
+                              height={48}
+                              className="h-12 w-12 shrink-0 rounded-xl border border-zinc-200 bg-zinc-50 object-cover"
+                            />
+                          )}
+                          <h3 className="text-lg font-bold text-zinc-900">{s.nombre}</h3>
+                        </div>
                         <span className="rounded-full bg-[var(--primary-50)] px-2.5 py-1 text-sm font-bold text-[var(--primary-700)]">
                           {formatter.format(s.precio)}
                         </span>

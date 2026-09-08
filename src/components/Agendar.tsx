@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Boton, Campo, Spinner, Tarjeta } from "@/components/ui";
@@ -79,6 +79,7 @@ export function Agendar() {
     profesional: string;
     link_gestion: string;
   } | null>(null);
+  const horariosRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     Promise.all([configPublica(), serviciosPublicos(), profesionalesPublicos()]).then(
@@ -151,6 +152,8 @@ export function Agendar() {
       setSlots([]);
     } finally {
       setCargandoSlots(false);
+      const movil = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+      if (movil) setTimeout(() => horariosRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
     }
   }
 
@@ -338,107 +341,123 @@ export function Agendar() {
               ← Volver
             </Boton>
             <h2 className="mb-3 mt-4 text-lg font-bold text-zinc-900">
-              Elige el día
+              Elige el día y la hora
             </h2>
-            <div className="mb-5 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
-              <div className="mb-2 flex items-center justify-between">
-                <button
-                  onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50"
-                  aria-label="Mes anterior"
-                >
-                  ‹
-                </button>
-                <span className="text-sm font-bold capitalize text-zinc-900">{etiquetaMes}</span>
-                <button
-                  onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50"
-                  aria-label="Mes siguiente"
-                >
-                  ›
-                </button>
+            <div className="grid items-start gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+                <div className="mb-2 flex items-center justify-between">
+                  <button
+                    onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() - 1, 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50"
+                    aria-label="Mes anterior"
+                  >
+                    ‹
+                  </button>
+                  <span className="text-sm font-bold capitalize text-zinc-900">{etiquetaMes}</span>
+                  <button
+                    onClick={() => setMes(new Date(mes.getFullYear(), mes.getMonth() + 1, 1))}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50"
+                    aria-label="Mes siguiente"
+                  >
+                    ›
+                  </button>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {DIAS_SEMANA.map((d) => (
+                    <span key={d} className="pb-1 text-[11px] font-semibold uppercase text-zinc-400">
+                      {d}
+                    </span>
+                  ))}
+                  {celdas.map((c, i) =>
+                    c.iso === "" ? (
+                      <span key={i} />
+                    ) : (
+                      <button
+                        key={c.iso}
+                        disabled={c.pasado}
+                        onClick={() => cargarSlots(c.iso)}
+                        className={`aspect-square rounded-lg text-sm font-semibold transition ${
+                          fecha === c.iso
+                            ? "bg-[var(--primary-600)] text-white shadow-sm"
+                            : c.pasado
+                              ? "cursor-not-allowed text-zinc-200"
+                              : "text-zinc-700 hover:bg-[var(--primary-50)]"
+                        }`}
+                      >
+                        {c.num}
+                      </button>
+                    )
+                  )}
+                </div>
               </div>
-              <div className="grid grid-cols-7 gap-1 text-center">
-                {DIAS_SEMANA.map((d) => (
-                  <span key={d} className="pb-1 text-[11px] font-semibold uppercase text-zinc-400">
-                    {d}
-                  </span>
-                ))}
-                {celdas.map((c, i) =>
-                  c.iso === "" ? (
-                    <span key={i} />
-                  ) : (
-                    <button
-                      key={c.iso}
-                      disabled={c.pasado}
-                      onClick={() => cargarSlots(c.iso)}
-                      className={`aspect-square rounded-lg text-sm font-semibold transition ${
-                        fecha === c.iso
-                          ? "bg-[var(--primary-600)] text-white shadow-sm"
-                          : c.pasado
-                            ? "cursor-not-allowed text-zinc-200"
-                            : "text-zinc-700 hover:bg-[var(--primary-50)]"
-                      }`}
-                    >
-                      {c.num}
-                    </button>
-                  )
+
+              <div ref={horariosRef} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+                {!fecha && (
+                  <div className="flex min-h-[180px] flex-col items-center justify-center gap-2 text-center">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary-50)] text-xl">
+                      🕐
+                    </span>
+                    <p className="text-sm font-semibold text-zinc-700">Elige un día</p>
+                    <p className="text-xs text-zinc-400">Los horarios aparecen aquí al tocar un día del calendario.</p>
+                  </div>
+                )}
+
+                {cargandoSlots && (
+                  <div className="flex min-h-[180px] items-center justify-center">
+                    <Spinner />
+                  </div>
+                )}
+
+                {fecha && !cargandoSlots && horarios.length > 0 && (
+                  <>
+                    <h3 className="mb-2 text-sm font-semibold capitalize text-zinc-700">
+                      {fmtDia(fecha)} · Horarios
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {horarios.map((s) => {
+                        const ocupado = ocupadoSet.has(s.start);
+                        return (
+                          <button
+                            key={s.start}
+                            disabled={ocupado}
+                            title={ocupado ? "Horario no disponible" : "Horario disponible"}
+                            onClick={() => setSlot(s)}
+                            className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                              slot?.start === s.start
+                                ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white shadow-sm"
+                                : ocupado
+                                  ? "cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-300 line-through decoration-rose-300/60"
+                                  : "border-zinc-200 bg-white text-zinc-700 hover:bg-[var(--primary-50)]"
+                            }`}
+                          >
+                            {fmtHora(s.start)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {slot && (
+                      <div className="mt-5">
+                        <Boton
+                          variante="primario"
+                          onClick={() => setPaso("datos")}
+                          className="w-full sm:w-auto"
+                        >
+                          Continuar →
+                        </Boton>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {fecha && !cargandoSlots && horarios.length === 0 && (
+                  <div className="flex min-h-[180px] items-center justify-center">
+                    <p className="text-center text-sm text-zinc-500">
+                      No hay horarios disponibles para este día.
+                    </p>
+                  </div>
                 )}
               </div>
             </div>
-
-            {cargandoSlots && (
-              <div className="flex justify-center py-8">
-                <Spinner />
-              </div>
-            )}
-
-            {!cargandoSlots && horarios.length > 0 && (
-              <>
-                <h3 className="mb-2 text-sm font-semibold text-zinc-700">
-                  Horarios del día
-                </h3>
-                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                  {horarios.map((s) => {
-                    const ocupado = ocupadoSet.has(s.start);
-                    return (
-                      <button
-                        key={s.start}
-                        disabled={ocupado}
-                        title={ocupado ? "Horario no disponible" : "Horario disponible"}
-                        onClick={() => setSlot(s)}
-                        className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
-                          slot?.start === s.start
-                            ? "border-[var(--primary-600)] bg-[var(--primary-600)] text-white shadow-sm"
-                            : ocupado
-                              ? "cursor-not-allowed border-zinc-100 bg-zinc-50 text-zinc-300 line-through decoration-rose-300/60"
-                              : "border-zinc-200 bg-white text-zinc-700 hover:bg-[var(--primary-50)]"
-                        }`}
-                      >
-                        {fmtHora(s.start)}
-                      </button>
-                    );
-                  })}
-                </div>
-                {slot && (
-                  <div className="mt-5">
-                    <Boton
-                      variante="primario"
-                      onClick={() => setPaso("datos")}
-                      className="w-full sm:w-auto"
-                    >
-                      Continuar →
-                    </Boton>
-                  </div>
-                )}
-              </>
-            )}
-
-            {!cargandoSlots && fecha && horarios.length === 0 && (
-              <p className="py-8 text-center text-zinc-500">
-                No hay horarios disponibles para este día.
-              </p>
-            )}
           </section>
         )}
 

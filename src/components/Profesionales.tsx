@@ -36,6 +36,7 @@ export function Profesionales() {
 
   const [editando, setEditando] = useState<ProfGestion | null>(null);
   const [form, setForm] = useState({ nombre: "", email: "", telefono: "", cargo: "", rol: "profesional", activo: true });
+  const [cargos, setCargos] = useState<{ id: string; nombre: string }[]>([]);
 
   const [asignando, setAsignando] = useState<ProfGestion | null>(null);
   const [selServicios, setSelServicios] = useState<Set<string>>(new Set());
@@ -43,12 +44,14 @@ export function Profesionales() {
   async function cargar() {
     try {
       const token = (await getTokenSesion()) ?? undefined;
-      const [res, sv] = await Promise.all([
+      const [res, sv, cargosRes] = await Promise.all([
         llamarEdge<{ profesionales: ProfGestion[] }>("gestionar-profesionales", { accion: "listar" }, token),
         serviciosPublicos(),
+        llamarEdge<{ cargos: { id: string; nombre: string }[] }>("gestionar-cargos", { accion: "listar" }, token),
       ]);
       setProfesionales(res.profesionales ?? []);
       setServicios((sv.data as ServicioPublico[]) ?? []);
+      setCargos(cargosRes.cargos ?? []);
     } catch (e) {
       notificar((e as Error).message, "error");
     } finally {
@@ -322,7 +325,21 @@ export function Profesionales() {
             <Campo label="Nombre" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
             <Campo label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             <Campo label="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
-            <Campo label="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
+            <div>
+              <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500">Cargo</span>
+              <select
+                value={form.cargo}
+                onChange={(e) => setForm({ ...form, cargo: e.target.value })}
+                className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 outline-none transition focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
+              >
+                <option value="">Sin cargo</option>
+                {cargos.map((c) => (
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div>
               <span className="mb-1 block text-xs font-medium uppercase tracking-wide text-zinc-500">Rol</span>
               <select

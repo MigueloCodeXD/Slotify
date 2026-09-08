@@ -43,7 +43,8 @@ export function Configuracion() {
   const [config, setConfig] = useState<Config | null>(null);
   const [servicios, setServicios] = useState<ServicioPublico[]>([]);
   const [misServicios, setMisServicios] = useState<string[]>([]);
-  const [cargos, setCargos] = useState<string[]>([]);
+  const [cargos, setCargos] = useState<{ id: string; nombre: string; en_uso?: boolean }[]>([]);
+  const [nuevoCargo, setNuevoCargo] = useState("");
   const [disponibilidad, setDisponibilidad] = useState<DiaDisponibilidad[]>(() =>
     DIAS.map((_, i) => ({ dia_semana: i, ...DIA_VACIO }))
   );
@@ -104,7 +105,7 @@ export function Configuracion() {
         configPublica(),
         serviciosPublicos(),
         llamarEdge<{ dias: DiaDisponibilidad[] }>("configuracion-profesional", { accion: "listar_disponibilidad" }, token),
-        llamarEdge<{ cargos: string[] }>("configuracion-profesional", { accion: "listar_cargos" }, token),
+        llamarEdge<{ cargos: { id: string; nombre: string; en_uso?: boolean }[] }>("gestionar-cargos", { accion: "listar" }, token),
         llamarEdge<{ servicio_ids: string[] }>("configuracion-profesional", { accion: "listar_mis_servicios" }, token),
         getRolProfesional(),
         llamarEdge<{ profesional: { nombre: string; email: string; telefono: string | null; cedula: string | null; cargo: string | null; rol: string; foto_url: string | null } }>("mi-perfil", {}, token),
@@ -410,6 +411,71 @@ export function Configuracion() {
     }
   }
 
+  async function refrescarCargos() {
+    const token = (await getTokenSesion()) ?? undefined;
+    const res = await llamarEdge<{ cargos: { id: string; nombre: string; en_uso?: boolean }[] }>("gestionar-cargos", { accion: "listar" }, token);
+    setCargos(res.cargos ?? []);
+  }
+
+  async function guardarCargo(e: React.FormEvent) {
+    e.preventDefault();
+    if (nuevoCargo.trim().length < 1) return;
+    if (enviando) return;
+    if (cargos.some((c) => c.nombre.toLowerCase() === nuevoCargo.trim().toLowerCase())) {
+      notificar("Ese cargo ya existe.", "error");
+      return;
+    }
+    setEnviando(true);
+    try {
+      await llamarEdge("gestionar-cargos", { accion: "crear", nombre: nuevoCargo.trim() }, (await getTokenSesion()) ?? undefined);
+      setNuevoCargo("");
+      notificar("Cargo creado.", "exito");
+      await refrescarCargos();
+    } catch (err) {
+      notificar((err as Error).message, "error");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function renombrarCargo(c: { id: string; nombre: string }) {
+    const nuevo = window.prompt("Nuevo nombre del cargo", c.nombre);
+    if (!nuevo || nuevo.trim() === c.nombre) return;
+    if (enviando) return;
+    if (cargos.some((x) => x.id !== c.id && x.nombre.toLowerCase() === nuevo.trim().toLowerCase())) {
+      notificar("Ya existe un cargo con ese nombre.", "error");
+      return;
+    }
+    setEnviando(true);
+    try {
+      await llamarEdge("gestionar-cargos", { accion: "renombrar", id: c.id, nombre: nuevo.trim() }, (await getTokenSesion()) ?? undefined);
+      notificar("Cargo renombrado.", "exito");
+      await refrescarCargos();
+      await refrescarServicios();
+      if (perfil.cargo === c.nombre) setPerfil((p) => ({ ...p, cargo: nuevo.trim() }));
+    } catch (err) {
+      notificar((err as Error).message, "error");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function eliminarCargo(c: { id: string; nombre: string; en_uso?: boolean }) {
+    if (c.en_uso) {
+      notificar("No se puede eliminar: hay profesionales o servicios con este cargo.", "error");
+      return;
+    }
+    if (!window.confirm(`¿Eliminar el cargo "${c.nombre}"?`)) return;
+    const token = (await getTokenSesion()) ?? undefined;
+    try {
+      await llamarEdge("gestionar-cargos", { accion: "eliminar", id: c.id }, token);
+      notificar("Cargo eliminado.", "exito");
+      await refrescarCargos();
+    } catch (e) {
+      notificar((e as Error).message, "error");
+    }
+  }
+
   function abrirEditarServicio(s: ServicioPublico) {
     setEditandoServicio(s);
     setFormServicio({
@@ -607,8 +673,8 @@ export function Configuracion() {
             >
               <option value="">Sin cargo</option>
               {cargos.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+                <option key={c.id} value={c.nombre}>
+                  {c.nombre}
                 </option>
               ))}
             </select>
@@ -916,8 +982,8 @@ export function Configuracion() {
               >
                 <option value="">Cualquier profesional</option>
                 {cargos.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
                   </option>
                 ))}
               </select>
@@ -991,6 +1057,7 @@ export function Configuracion() {
       )}
 
       {rol === "admin" && (
+        <>
         <Tarjeta className="p-5 animate-fade-up [animation-delay:300ms]">
           <div className="mb-3 flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary-100)] text-sm">🏷</span>
@@ -1039,6 +1106,60 @@ export function Configuracion() {
             )}
           </div>
         </Tarjeta>
+        <Tarjeta className="p-5 animate-fade-up [animation-delay:310ms]">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--primary-100)] text-sm">💼</span>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-[var(--primary-700)]">
+              Cargos
+            </h2>
+          </div>
+          <form onSubmit={guardarCargo} className="flex gap-2">
+            <input
+              value={nuevoCargo}
+              onChange={(e) => setNuevoCargo(e.target.value)}
+              placeholder="Nuevo cargo (ej. Barbero)"
+              className="w-full rounded-xl border border-zinc-200 bg-white px-3.5 py-2.5 text-sm text-zinc-900 placeholder-zinc-400 outline-none transition focus:border-[var(--primary-400)] focus:ring-2 focus:ring-[var(--primary-500)]/20"
+            />
+            <div className="flex items-end">
+              <Boton type="submit" variante="primario" disabled={enviando}>
+                {enviando ? "Añadiendo…" : "Añadir"}
+              </Boton>
+            </div>
+          </form>
+          {cargos.length > 0 && (
+            <p className="mt-3 text-[11px] text-zinc-400">
+              Los cargos determinan qué profesionales pueden ofrecer un servicio.
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {cargos.map((c) => (
+              <span
+                key={c.id}
+                className="flex items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-sm text-zinc-600"
+              >
+                {c.nombre}
+                <button
+                  onClick={() => renombrarCargo(c)}
+                  title="Renombrar"
+                  className="text-zinc-400 transition hover:text-[var(--primary-600)]"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => eliminarCargo(c)}
+                  title={c.en_uso ? "En uso" : "Eliminar"}
+                  className="text-zinc-400 transition hover:text-rose-500"
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+            {cargos.length === 0 && (
+              <p className="text-sm text-zinc-500">Aún no hay cargos.</p>
+            )}
+          </div>
+        </Tarjeta>
+        </>
       )}
 
       {rol === "admin" && (
@@ -1070,8 +1191,8 @@ export function Configuracion() {
               >
                 <option value="">Sin cargo</option>
                 {cargos.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
                   </option>
                 ))}
               </select>
@@ -1113,8 +1234,8 @@ export function Configuracion() {
               >
                 <option value="">Cualquier profesional</option>
                 {cargos.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                  <option key={c.id} value={c.nombre}>
+                    {c.nombre}
                   </option>
                 ))}
               </select>

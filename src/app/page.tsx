@@ -25,10 +25,12 @@ export default function Home() {
       .catch(() => setError("No pudimos cargar el catálogo."));
   }, []);
 
-  const formatter = new Intl.NumberFormat("es", {
+  const formatter = new Intl.NumberFormat("es-CO", {
     style: "currency",
-    currency: "USD",
+    currency: "COP",
     currencyDisplay: "narrowSymbol",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   });
 
   const grupos = useMemo(() => {

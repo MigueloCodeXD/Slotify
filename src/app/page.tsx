@@ -28,6 +28,7 @@ export default function Home() {
   const formatter = new Intl.NumberFormat("es", {
     style: "currency",
     currency: "USD",
+    currencyDisplay: "narrowSymbol",
   });
 
   const grupos = useMemo(() => {

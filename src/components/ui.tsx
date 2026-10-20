@@ -154,7 +154,7 @@ export function Contador({
   }, [valor]);
 
   const texto = moneda
-    ? "$" + (Number.isFinite(mostrado) ? mostrado : 0).toFixed(2)
+    ? "$" + (Number.isFinite(mostrado) ? Math.round(mostrado) : 0)
     : String(mostrado);
 
   return <span className={`font-mono tabular-nums ${className}`}>{texto}</span>;

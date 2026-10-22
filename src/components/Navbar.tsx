@@ -6,16 +6,21 @@ import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { configPublica } from "@/lib/supabaseClient";
 import { aplicarTema } from "@/lib/theme";
+import type { Config } from "@/types";
 
-export function Navbar() {
+export function Navbar({ initialConfig }: { initialConfig?: Config | null } = {}) {
   const pathname = usePathname();
 
   useEffect(() => {
+    if (initialConfig?.color_principal) {
+      aplicarTema(initialConfig.color_principal);
+      return;
+    }
     configPublica().then((c) => {
       const cfg = c.data;
       if (cfg?.color_principal) aplicarTema(cfg.color_principal);
     });
-  }, []);
+  }, [initialConfig]);
 
   const logo = "/logo.png";
   const nombre = "Slotify";

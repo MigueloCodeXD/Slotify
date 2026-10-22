@@ -11,6 +11,6 @@ export async function obtenerConfig(): Promise<Config | null> {
     auth: { persistSession: false },
   });
 
-  const { data } = await supabase.from("configuracion").select("*").maybeSingle();
+  const { data } = await supabase.from("v_config").select("*").maybeSingle();
   return (data as Config) ?? null;
 }

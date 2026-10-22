@@ -49,7 +49,7 @@ function fmtHora(iso: string): string {
 
 function fmtMoneda(v: number | null | undefined): string {
   const n = Number(v ?? 0);
-  return "$" + (Number.isFinite(n) ? n : 0).toFixed(2);
+  return "$" + (Number.isFinite(n) ? Math.round(n) : 0);
 }
 
 function fmtInputTime(iso: string): string {

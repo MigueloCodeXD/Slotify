@@ -26,7 +26,7 @@ function fmt(iso: string): string {
 
 function fmtMoneda(v: number): string {
   const n = Number(v ?? 0);
-  return "$" + (Number.isFinite(n) ? n : 0).toFixed(2);
+  return "$" + (Number.isFinite(n) ? Math.round(n) : 0);
 }
 
 function rango(c: CitaCliente): { start: string; end: string } {

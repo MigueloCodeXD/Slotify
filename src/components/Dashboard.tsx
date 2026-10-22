@@ -30,7 +30,7 @@ function fmtFecha(iso: string): string {
 
 function fmtMoneda(v: number | null | undefined): string {
   const n = Number(v ?? 0);
-  return "$" + (Number.isFinite(n) ? n : 0).toFixed(2);
+  return "$" + (Number.isFinite(n) ? Math.round(n) : 0);
 }
 
 interface CitaDash {
@@ -414,7 +414,7 @@ export function Dashboard() {
                   <p className="text-xs text-zinc-500">
                     {c.servicio.nombre} ·{" "}
                     <span className="font-mono">
-                      {Number(c.precio_servicio ?? c.servicio.precio).toFixed(2)}
+                      {Number(c.precio_servicio ?? c.servicio.precio).toFixed(0)}
                     </span>
                   </p>
                   {c.estado_pago !== "pagado" && (

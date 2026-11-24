@@ -21,3 +21,47 @@ export function actualizarTZ(zona?: string | null): void {
     TZ = zona.trim();
   }
 }
+
+function partesZona(fecha: Date, tz: string) {
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+  const map: Record<string, string> = {};
+  for (const p of fmt.formatToParts(fecha)) {
+    if (p.type !== "literal") map[p.type] = p.value;
+  }
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+    second: Number(map.second),
+  };
+}
+
+export function offsetZonaMs(fecha: Date, tz: string = TZ): number {
+  const p = partesZona(fecha, tz);
+  const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+  return asUtc - fecha.getTime();
+}
+
+export function fechaLocalInputAISO(fechaLocal: string, horaLocal: string, tz: string = TZ): string {
+  const [y, m, d] = fechaLocal.split("-").map(Number);
+  const [hh, mm] = horaLocal.split(":").map(Number);
+  let utcGuess = Date.UTC(y, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0, 0);
+  for (let i = 0; i < 3; i++) {
+    const off = offsetZonaMs(new Date(utcGuess), tz);
+    const next = Date.UTC(y, (m ?? 1) - 1, d ?? 1, hh ?? 0, mm ?? 0, 0) - off;
+    if (next === utcGuess) break;
+    utcGuess = next;
+  }
+  return new Date(utcGuess).toISOString();
+}

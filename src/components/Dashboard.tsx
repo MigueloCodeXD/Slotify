@@ -60,20 +60,13 @@ interface FilaCita {
 }
 
 interface Dash {
-  hoy: {
-    fecha: string;
-    citas: CitaDash[];
-    total_confirmadas: number;
-    canceladas: number;
-  };
+  hoy: { fecha: string; citas: CitaDash[]; total_confirmadas: number; canceladas: number };
   proximas: CitaDash[];
   bloqueos_hoy: Bloqueo[];
   mes: {
-    mes: string;
-    cuenta: Record<string, number>;
-    ingresos: number;
-    pagos_recibidos: number;
-    total: number;
+    mes: string; cuenta: Record<string, number>; ingresos: number; pagos_recibidos: number; total: number;
+    tasas?: { cancelacion: number; no_show: number; completada: number };
+    comparativa?: { ingresos: number; total: number; tasas: { cancelacion: number; no_show: number; completada: number }; cuenta: Record<string, number> };
     desglose_servicios: { servicio_id: string; servicio: string; cantidad: number; ingresos: number }[];
     desglose_profesionales: { profesional_id: string; profesional: string; cantidad: number; ingresos: number }[];
     filas: FilaCita[];
@@ -125,13 +118,14 @@ export function Dashboard() {
   const [cambiando, setCambiando] = useState<string | null>(null);
   const [pagoCita, setPagoCita] = useState<CitaDash | null>(null);
   const [enviandoPago, setEnviandoPago] = useState(false);
+  const [periodo, setPeriodo] = useState<"actual" | "mes_anterior">("actual");
 
-  async function cargar() {
+  async function cargar(p = periodo) {
     setCargando(true);
     setError(null);
     try {
       const token = (await getTokenSesion()) ?? undefined;
-      const res = await llamarEdge<Dash>("dashboard-profesional", {}, token);
+      const res = await llamarEdge<Dash>("dashboard-profesional", p === "mes_anterior" ? { periodo: "mes_anterior" } : {}, token);
       const { data: cfg } = await configPublica();
       actualizarTZ((cfg as { zona_horaria?: string } | null)?.zona_horaria);
       setDatos(res);
@@ -142,14 +136,12 @@ export function Dashboard() {
     }
   }
 
-  useEffect(() => {
-    cargar();
-  }, []);
+  useEffect(() => { void cargar("actual"); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function cambiarEstado(c: CitaDash, estado: string) {
     const token = (await getTokenSesion()) ?? undefined;
     try {
-      await llamarEdge("actualizar-cita-profesional", { id: c.id, estado }, token);
+      await llamarEdge("actualizar-cita-profesional", { cita_id: c.id, estado }, token);
       notificar(`Cita marcada como ${ETIQUETAS[estado] ?? estado}.`, "exito");
       await cargar();
     } catch (e) {
@@ -251,38 +243,39 @@ export function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="animate-fade-up">
-        <h1 className="font-display text-3xl font-semibold text-zinc-900">Resumen</h1>
-        <p className="mt-1 text-sm text-zinc-500">Tu panorama del día y del mes</p>
+      <div className="animate-fade-up flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-semibold text-zinc-900">Resumen</h1>
+          <p className="mt-1 text-sm text-zinc-500">Tu panorama del día y del mes</p>
+        </div>
+        <div className="flex gap-2">
+          <Boton variante={periodo === "actual" ? "primario" : "secundario"} className="!px-3 !py-1.5 text-xs" onClick={() => { setPeriodo("actual"); cargar("actual"); }}>Mes actual</Boton>
+          <Boton variante={periodo === "mes_anterior" ? "primario" : "secundario"} className="!px-3 !py-1.5 text-xs" onClick={() => { setPeriodo("mes_anterior"); cargar("mes_anterior"); }}>Mes anterior</Boton>
+        </div>
       </div>
 
       <ChatFlotante soloInfo storageKey="resumen" />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <Tarjeta className="p-5 animate-fade-up">
-          <p className="text-sm font-semibold text-[var(--primary-700)]">Ingresos del mes</p>
-          <p className="mt-2 text-3xl font-semibold text-zinc-900">
-            <Contador valor={datos.mes.ingresos} moneda />
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            En {miMes} · <span className="text-emerald-600">pagado {fmtMoneda(datos.mes.pagos_recibidos)}</span>
-          </p>
+          <p className="text-sm font-semibold text-[var(--primary-700)]">Ingresos del periodo</p>
+          <p className="mt-2 text-3xl font-semibold text-zinc-900"><Contador valor={datos.mes.ingresos} moneda /></p>
+          <p className="mt-1 text-xs text-zinc-500">En {miMes} · ant. {fmtMoneda(datos.mes.comparativa?.ingresos ?? 0)}</p>
         </Tarjeta>
         <Tarjeta className="p-5 animate-fade-up [animation-delay:80ms]">
           <p className="text-sm font-semibold text-[var(--primary-700)]">Citas hoy</p>
-          <p className="mt-2 text-3xl font-semibold text-zinc-900">
-            <Contador valor={datos.hoy.total_confirmadas} />
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">
-            confirmadas · <span className="text-rose-500">{datos.hoy.canceladas}</span> canceladas
-          </p>
+          <p className="mt-2 text-3xl font-semibold text-zinc-900"><Contador valor={datos.hoy.total_confirmadas} /></p>
+          <p className="mt-1 text-xs text-zinc-500">confirmadas · <span className="text-rose-500">{datos.hoy.canceladas}</span> canceladas</p>
         </Tarjeta>
         <Tarjeta className="p-5 animate-fade-up [animation-delay:160ms]">
-          <p className="text-sm font-semibold text-[var(--primary-700)]">Próximas (7 días)</p>
-          <p className="mt-2 text-3xl font-semibold text-zinc-900">
-            <Contador valor={datos.proximas.length} />
-          </p>
-          <p className="mt-1 text-xs text-zinc-500">citas confirmadas</p>
+          <p className="text-sm font-semibold text-[var(--primary-700)]">Tasas periodo</p>
+          <p className="mt-2 text-xl font-semibold text-zinc-900">No-show {Math.round((datos.mes.tasas?.no_show ?? 0) * 100)}%</p>
+          <p className="mt-1 text-xs text-zinc-500">Cancel {Math.round((datos.mes.tasas?.cancelacion ?? 0) * 100)}% · Comp. {Math.round((datos.mes.tasas?.completada ?? 0) * 100)}%</p>
+        </Tarjeta>
+        <Tarjeta className="p-5 animate-fade-up [animation-delay:240ms]">
+          <p className="text-sm font-semibold text-[var(--primary-700)]">Pagos recibidos</p>
+          <p className="mt-2 text-3xl font-semibold text-zinc-900"><Contador valor={datos.mes.pagos_recibidos} moneda /></p>
+          <p className="mt-1 text-xs text-zinc-500">Pendiente {fmtMoneda(datos.mes.ingresos - datos.mes.pagos_recibidos)}</p>
         </Tarjeta>
       </div>
 

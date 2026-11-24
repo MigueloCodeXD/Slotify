@@ -9,7 +9,7 @@ import { ChatIA } from "@/components/ChatIA";
 import { llamarEdge } from "@/lib/api";
 import { getTokenSesion } from "@/lib/sesion";
 import { diasProximos, fmtPill } from "@/lib/fechas";
-import { TZ } from "@/lib/zonaHoraria";
+import { TZ, fechaLocalInputAISO } from "@/lib/zonaHoraria";
 import type { CitaProfesional, Bloqueo, Profesional } from "@/types";
 
 
@@ -182,8 +182,8 @@ export function PanelCalendario({ profesionalIdTarget }: { profesionalIdTarget?:
     if (!bloqueoForm.fecha || !bloqueoForm.inicio || !bloqueoForm.fin) return;
     setBloqueoOcupado(false);
     const hasta = bloqueoForm.hasta || bloqueoForm.fecha;
-    const start = new Date(`${bloqueoForm.fecha}T${bloqueoForm.inicio}:00-05:00`).toISOString();
-    const end = new Date(`${hasta}T${bloqueoForm.fin}:00-05:00`).toISOString();
+    const start = fechaLocalInputAISO(bloqueoForm.fecha, bloqueoForm.inicio);
+    const end = fechaLocalInputAISO(hasta, bloqueoForm.fin);
     if (new Date(end) <= new Date(start)) {
       notificar("El bloqueo debe terminar después de comenzar.", "error");
       return;

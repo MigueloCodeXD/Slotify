@@ -23,8 +23,13 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Slotify — Agenda tu cita",
+  title: {
+    default: "Slotify — Agenda tu cita",
+    template: "%s | Slotify",
+  },
   description: "Reserva tu cita online de forma rápida y sencilla.",
+  applicationName: "Slotify",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({

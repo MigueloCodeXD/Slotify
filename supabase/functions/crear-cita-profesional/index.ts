@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 import { logInfo, logError } from "../_shared/logging.ts";
+import { auditarCita } from "../_shared/auditoria.ts";
 
 const HORAS_CONFIRMAR = 6;
 
@@ -29,15 +30,15 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos", detalle: parsed.error.flatten() }, 400);
@@ -55,7 +56,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     .eq("profesional_id", target.id)
     .gte("created_at", new Date(Date.now() - ventanaMs).toISOString());
   if ((count ?? 0) >= 15) {
-    return json({ error: "Demasiadas solicitudes. Intenta en un momento." }, 429);
+    return json({ error: "Demasiadas solicitudes. Intenta en un momento." }, 429, req);
   }
 
   // Cliente: por id, o por email (reutiliza/crea)
@@ -77,7 +78,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
         .insert({ nombre: d.nombre_cliente, email: d.email_cliente.toLowerCase(), telefono: d.telefono_cliente ?? null })
         .select("id")
         .single();
-      if (eNew) return json({ error: "No se pudo registrar el cliente." }, 500);
+      if (eNew) return json({ error: "No se pudo registrar el cliente." }, 500, req);
       clienteId = nuevo!.id;
     }
   }
@@ -91,14 +92,14 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
   const avisoNoShow = (noShows ?? 0) >= 1 ? { no_mostradas: noShows ?? 0, aviso: "Este cliente faltó en citas anteriores." } : null;
 
   const startMs = Date.parse(d.start);
-  if (Number.isNaN(startMs)) return json({ error: "Fecha inválida" }, 400);
+  if (Number.isNaN(startMs)) return json({ error: "Fecha inválida" }, 400, req);
 
   const { data: servicio } = await admin
     .from("servicios")
     .select("id, nombre, duracion_min, buffer_min, activo, precio")
     .eq("id", d.servicio_id)
     .single();
-  if (!servicio || !servicio.activo) return json({ error: "Servicio no disponible" }, 400);
+  if (!servicio || !servicio.activo) return json({ error: "Servicio no disponible" }, 400, req);
 
   // El profesional debe ofrecer el servicio (o el admin operando sobre él)
   if (target.rol !== "admin") {
@@ -108,12 +109,12 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
       .eq("profesional_id", target.id)
       .eq("servicio_id", d.servicio_id)
       .maybeSingle();
-    if (!ps) return json({ error: `${target.nombre} no ofrece ese servicio.` }, 400);
+    if (!ps) return json({ error: `${target.nombre} no ofrece ese servicio.` }, 400, req);
   }
 
   const cfg = await getConfig();
   if (startMs < Date.now() + cfg.margen_anticipacion_horas * 3_600_000) {
-    return json({ error: "El horario no cumple el margen de anticipación." }, 400);
+    return json({ error: "El horario no cumple el margen de anticipación." }, 400, req);
   }
 
   const disp = await consultarDisponibilidad({
@@ -123,7 +124,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     end: startMs + servicio.duracion_min * 60_000,
   });
   const match = disp.slots.find((s) => Date.parse(s.start) === startMs);
-  if (!match) return json({ error: "El horario elegido ya no está disponible." }, 409);
+  if (!match) return json({ error: "El horario elegido ya no está disponible." }, 409, req);
 
   const endMs = startMs + servicio.duracion_min * 60_000;
   const bufferMs = servicio.buffer_min * 60_000;
@@ -146,9 +147,9 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     .single();
   if (eIns) {
     if (String(eIns.message).includes("EXCLUDE") || String(eIns.code) === "23P01") {
-      return json({ error: "Horario ocupado por otra cita." }, 409);
+      return json({ error: "Horario ocupado por otra cita." }, 409, req);
     }
-    return json({ error: "No se pudo crear la cita." }, 500);
+    return json({ error: "No se pudo crear la cita." }, 500, req);
   }
 
   const { data: cliente } = await admin.from("clientes").select("nombre, email").eq("id", clienteId).single();
@@ -169,6 +170,7 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
     direccion: config?.direccion ?? "",
   }).catch(() => {});
 
+  await auditarCita({ citaId: cita.id, estadoAnterior: null, estadoNuevo: cita.estado, hechoPor: target.email });
   logInfo("crear-cita-profesional", "cita_creada", {
     cita_id: cita.id,
     profesional_id: target.id,
@@ -188,11 +190,9 @@ export async function crearCitaProfRequest(req: Request): Promise<Response> {
 
 serve(async (req) => {
   try {
-    const res = await crearCitaProfRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await crearCitaProfRequest(req);
   } catch (err) {
     logError("crear-cita-profesional", "excepcion", { mensaje: (err as Error).message });
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

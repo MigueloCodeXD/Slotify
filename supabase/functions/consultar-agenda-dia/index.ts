@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { getTZ, dayStartUtc, utcOffset } from "../_shared/time.ts";
@@ -29,18 +29,18 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
@@ -58,7 +58,7 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
     .eq("profesional_id", target.id)
     .filter("rango_tiempo", "ov", ventana);
 
-  if (error) return json({ error: "No se pudo consultar la agenda." }, 500);
+  if (error) return json({ error: "No se pudo consultar la agenda." }, 500, req);
 
   const { data: bloqueos } = await admin
     .from("bloqueos")
@@ -82,11 +82,9 @@ export async function agendaDiaRequest(req: Request): Promise<Response> {
 
 serve(async (req) => {
   try {
-    const res = await agendaDiaRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await agendaDiaRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

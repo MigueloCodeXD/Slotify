@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 
 const schema = z.object({
@@ -18,10 +18,10 @@ export async function activarRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   const { data: inv, error: eInv } = await admin
@@ -32,11 +32,11 @@ export async function activarRequest(req: Request): Promise<Response> {
     .gte("expira_at", new Date().toISOString())
     .single();
   if (eInv || !inv || !inv.profesional) {
-    return json({ error: "Invitación inválida o expirada." }, 400);
+    return json({ error: "Invitación inválida o expirada." }, 400, req);
   }
 
   const prof = inv.profesional;
-  if (prof.user_id) return json({ error: "Esta cuenta ya fue activada." }, 400);
+  if (prof.user_id) return json({ error: "Esta cuenta ya fue activada." }, 400, req);
 
   let authUser = null;
   const { data: created, error: eCreate } = await admin.auth.admin.createUser({
@@ -47,7 +47,7 @@ export async function activarRequest(req: Request): Promise<Response> {
   if (eCreate) {
     const { data: found } = await admin.auth.admin.listUsers({ page: 1, perPage: 1 });
     authUser = found?.users?.find((u) => u.email === prof.email) ?? null;
-    if (!authUser) return json({ error: "No se pudo crear la cuenta." }, 500);
+    if (!authUser) return json({ error: "No se pudo crear la cuenta." }, 500, req);
   } else {
     authUser = created.user;
   }
@@ -60,7 +60,7 @@ export async function activarRequest(req: Request): Promise<Response> {
       ...(d.telefono !== undefined ? { telefono: d.telefono } : {}),
     })
     .eq("id", prof.id);
-  if (eLink) return json({ error: "No se pudo vincular la cuenta." }, 500);
+  if (eLink) return json({ error: "No se pudo vincular la cuenta." }, 500, req);
 
   await admin.auth.admin.updateUserById(authUser.id, {
     user_metadata: { nombre: prof.nombre, rol: prof.rol },
@@ -68,16 +68,14 @@ export async function activarRequest(req: Request): Promise<Response> {
 
   await admin.from("invitaciones").update({ usado: true }).eq("id", inv.id);
 
-  return json({ ok: true, mensaje: "Cuenta activada. Ya puedes iniciar sesión." });
+  return json({ ok: true, mensaje: "Cuenta activada. Ya puedes iniciar sesión." }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await activarRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await activarRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

@@ -1,11 +1,23 @@
 // Firma/verifica tokens de sesión de cliente con HMAC-SHA256 (WebCrypto).
 const enc = new TextEncoder();
 
+function getSecret(): Uint8Array {
+  const secret = Deno.env.get("AUTH_SECRET");
+  if (!secret) throw new Error("AUTH_SECRET no configurado");
+  return enc.encode(secret);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
 async function hmac(data: string): Promise<string> {
-  const secret = enc.encode(Deno.env.get("AUTH_SECRET") ?? "slotify-dev-secret");
   const key = await crypto.subtle.importKey(
     "raw",
-    secret,
+    getSecret(),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -27,7 +39,7 @@ export async function verificarSesionCliente(token: string): Promise<{ email: st
   const body = token.slice(0, idx);
   const sig = token.slice(idx + 1);
   const expected = await hmac(body);
-  if (sig !== expected) return null;
+  if (!timingSafeEqual(sig, expected)) return null;
   try {
     const payload = JSON.parse(atob(body));
     if (payload.exp < Date.now()) return null;

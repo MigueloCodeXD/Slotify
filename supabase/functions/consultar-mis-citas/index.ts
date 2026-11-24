@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { verificarSesionCliente } from "../_shared/token.ts";
 
@@ -17,10 +17,10 @@ export async function misCitasRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
 
   // Modo 1: cita puntual por token de gestión
   if (parsed.data.token_gestion) {
@@ -29,27 +29,27 @@ export async function misCitasRequest(req: Request): Promise<Response> {
       .select("*, servicio:servicios(id,nombre,descripcion,precio,duracion_min), profesional:profesionales(id,nombre)")
       .eq("token_gestion", parsed.data.token_gestion)
       .single();
-    if (!cita) return json({ error: "No se encontró la cita." }, 404);
+    if (!cita) return json({ error: "No se encontró la cita." }, 404, req);
     const { data: avisos } = await admin
       .from("avisos_cita")
       .select("id, mensaje, emisor, created_at")
       .eq("cita_id", cita.id)
       .eq("es_publico_cliente", true)
       .order("created_at", { ascending: false });
-    return json({ citas: [cita], avisos: { [cita.id]: avisos ?? [] } });
+    return json({ citas: [cita], avisos: { [cita.id]: avisos ?? [] } }, 200, req);
   }
 
   // Modo 2: sesión por código de acceso
-  if (!parsed.data.sesion) return json({ error: "Falta sesión o token." }, 400);
+  if (!parsed.data.sesion) return json({ error: "Falta sesión o token." }, 400, req);
   const sesion = await verificarSesionCliente(parsed.data.sesion);
-  if (!sesion) return json({ error: "Sesión inválida o expirada." }, 401);
+  if (!sesion) return json({ error: "Sesión inválida o expirada." }, 401, req);
 
   const { data: cliente } = await admin
     .from("clientes")
     .select("id, nombre, email, telefono")
     .eq("email", sesion.email)
     .maybeSingle();
-  if (!cliente) return json({ citas: [], avisos: {}, cliente: null });
+  if (!cliente) return json({ citas: [], avisos: {}, cliente: null }, 200, req);
 
   const { data: citas } = await admin
     .from("citas")
@@ -72,16 +72,14 @@ export async function misCitasRequest(req: Request): Promise<Response> {
   const agrupados: Record<string, typeof avisos> = {};
   for (const av of avisos) (agrupados[av.cita_id] ??= []).push(av);
 
-  return json({ citas: citas ?? [], avisos: agrupados, cliente });
+  return json({ citas: citas ?? [], avisos: agrupados, cliente }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await misCitasRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await misCitasRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

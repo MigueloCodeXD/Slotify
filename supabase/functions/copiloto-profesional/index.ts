@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json, asegurarCategoria } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 import { chatConHerramientas, type ToolDef } from "../_shared/gemini.ts";
@@ -330,15 +330,15 @@ export async function copilotoRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = z
     .object({
@@ -356,7 +356,7 @@ export async function copilotoRequest(req: Request): Promise<Response> {
         .optional(),
     })
     .safeParse(body);
-  if (!parsed.success) return json({ error: "Mensaje inválido" }, 400);
+  if (!parsed.success) return json({ error: "Mensaje inválido" }, 400, req);
 
   const esAdmin = prof.rol === "admin";
   const soloInfo = parsed.data.modo === "info";
@@ -394,13 +394,13 @@ export async function copilotoRequest(req: Request): Promise<Response> {
       .select("id, nombre, email")
       .eq("id", parsed.data.cliente_id)
       .maybeSingle();
-    if (!cliente) return json({ error: "Cliente no encontrado." }, 404);
+    if (!cliente) return json({ error: "Cliente no encontrado." }, 404, req);
     const { count } = await admin
       .from("citas")
       .select("id", { count: "exact", head: true })
       .eq("profesional_id", prof.id)
       .eq("cliente_id", cliente.id);
-    if ((count ?? 0) === 0) return json({ error: "No puedes consultar ese cliente." }, 403);
+    if ((count ?? 0) === 0) return json({ error: "No puedes consultar ese cliente." }, 403, req);
     contextoCliente = { id: cliente.id, nombre: cliente.nombre };
   }
 
@@ -1279,8 +1279,8 @@ export async function copilotoRequest(req: Request): Promise<Response> {
     tipo: "profesional",
   });
 
-  if (fallback) return json({ respuesta, fallback: true });
-  return json({ respuesta, fallback: false });
+  if (fallback) return json({ respuesta, fallback: true }, 200, req);
+  return json({ respuesta, fallback: false }, 200, req);
 }
 
 function norm(s: string): string {
@@ -1296,11 +1296,9 @@ function parseRango(text: string): { start: string; end: string } {
 
 serve(async (req) => {
   try {
-    const res = await copilotoRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await copilotoRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

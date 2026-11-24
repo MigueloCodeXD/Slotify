@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { json } from "../_shared/db.ts";
 import { consultarDisponibilidad } from "../_shared/disponibilidad.ts";
 import { getTZ, dayStartUtc, diaLocalIso } from "../_shared/time.ts";
@@ -22,7 +22,7 @@ export async function disponibilidadRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos", detalle: parsed.error.flatten() }, 400);
@@ -45,16 +45,14 @@ export async function disponibilidadRequest(req: Request): Promise<Response> {
     (porDia[key] ??= []).push(s);
   }
 
-  return json({ por_dia: porDia, slots, ocupados });
+  return json({ por_dia: porDia, slots, ocupados }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await disponibilidadRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await disponibilidadRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
+import { auditarCita } from "../_shared/auditoria.ts";
 
 const schema = z.object({
   servicio_id: z.string().uuid(),
@@ -28,7 +29,7 @@ export async function createCitaRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
 
   const parsed = schema.safeParse(body);
@@ -38,13 +39,13 @@ export async function createCitaRequest(req: Request): Promise<Response> {
   const d = parsed.data;
 
   // Honeypot anti-spam: si el campo oculto viene lleno, fingimos éxito.
-  if (d.website) return json({ ok: true, cita: { id: "fake" } });
+  if (d.website) return json({ ok: true, cita: { id: "fake" } }, 200, req);
 
   const cfg = await getConfig();
 
   // Rate limit: máx 5 citas por email en 10 min.
   const ventanaMs = 10 * 60 * 1000;
-  const { data: cliente, error: eCl } = await admin
+  const { data: cliente } = await admin
     .from("clientes")
     .select("id")
     .eq("email", d.email_cliente.toLowerCase())
@@ -56,23 +57,23 @@ export async function createCitaRequest(req: Request): Promise<Response> {
       .eq("cliente_id", cliente.id)
       .gte("created_at", new Date(Date.now() - ventanaMs).toISOString());
     if ((count ?? 0) >= 5) {
-      return json({ error: "Demasiadas solicitudes. Intenta en unos minutos." }, 429);
+      return json({ error: "Demasiadas solicitudes. Intenta en unos minutos." }, 429, req);
     }
   }
 
   const startMs = Date.parse(d.start);
-  if (Number.isNaN(startMs)) return json({ error: "Fecha inválida" }, 400);
+  if (Number.isNaN(startMs)) return json({ error: "Fecha inválida" }, 400, req);
 
   const { data: servicio } = await admin
     .from("servicios")
     .select("id, nombre, duracion_min, buffer_min, precio")
     .eq("id", d.servicio_id)
     .single();
-  if (!servicio) return json({ error: "Servicio no disponible" }, 400);
+  if (!servicio) return json({ error: "Servicio no disponible" }, 400, req);
 
   // Validar margen de anticipación
   if (startMs < Date.now() + cfg.margen_anticipacion_horas * 3_600_000) {
-    return json({ error: "Debes agendar con al menos la anticipación mínima." }, 400);
+    return json({ error: "Debes agendar con al menos la anticipación mínima." }, 400, req);
   }
 
   // Verificar disponibilidad real del horario elegido
@@ -85,7 +86,7 @@ export async function createCitaRequest(req: Request): Promise<Response> {
 
   const match = disp.slots.find((s) => Date.parse(s.start) === startMs);
   if (!match) {
-    return json({ error: "El horario elegido ya no está disponible." }, 409);
+    return json({ error: "El horario elegido ya no está disponible." }, 409, req);
   }
   const profesionalId = match.profesional_id;
 
@@ -94,13 +95,13 @@ export async function createCitaRequest(req: Request): Promise<Response> {
     .select("id, nombre, email")
     .eq("id", profesionalId)
     .single();
-  if (!profesional) return json({ error: "Datos del servicio no disponibles" }, 400);
+  if (!profesional) return json({ error: "Datos del servicio no disponibles" }, 400, req);
 
   const bufferMs = servicio.buffer_min * 60_000;
   const endMs = startMs + servicio.duracion_min * 60_000;
 
   // Cliente: reutilizar por email o crear
-  const { data: clienteEx, error: eEx } = await admin
+  const { data: clienteEx } = await admin
     .from("clientes")
     .select("id")
     .eq("email", d.email_cliente.toLowerCase())
@@ -116,7 +117,7 @@ export async function createCitaRequest(req: Request): Promise<Response> {
       })
       .select("id")
       .single();
-    if (eNew) return json({ error: "No se pudo registrar el cliente" }, 500);
+    if (eNew) return json({ error: "No se pudo registrar el cliente" }, 500, req);
     clienteId = nuevo!.id;
   }
 
@@ -144,9 +145,9 @@ export async function createCitaRequest(req: Request): Promise<Response> {
 
   if (eIns) {
     if (String(eIns.message).includes("EXCLUDE") || String(eIns.code) === "23P01") {
-      return json({ error: "Horario ocupado por otra cita." }, 409);
+      return json({ error: "Horario ocupado por otra cita." }, 409, req);
     }
-    return json({ error: "No se pudo crear la cita" }, 500);
+    return json({ error: "No se pudo crear la cita" }, 500, req);
   }
 
   const { data: config } = await admin
@@ -156,6 +157,7 @@ export async function createCitaRequest(req: Request): Promise<Response> {
 
   const link = `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/mi-cita?token=${cita.token_gestion}`;
 
+  await auditarCita({ citaId: cita.id, estadoAnterior: null, estadoNuevo: cita.estado ?? "confirmada", hechoPor: "cliente" });
   // Notificaciones
   await enviarCorreo("cita_creada_cliente", {
     to: d.email_cliente,
@@ -166,34 +168,28 @@ export async function createCitaRequest(req: Request): Promise<Response> {
     direccion: config?.direccion ?? "",
     link_gestion: link,
     negocio: config?.nombre_negocio ?? "Slotify",
-  }).catch(() => {});
+  }).catch((e) => console.warn(JSON.stringify({ ts: new Date().toISOString(), nivel: "warn", area: "crear-cita", evento: "email_cliente_fallido", datos: { error: (e as Error).message } })));
   await enviarCorreo("cita_creada_profesional", {
     to: profesional.email,
     cliente: d.nombre_cliente,
     servicio: servicio.nombre,
     fecha: new Date(startMs).toISOString(),
     negocio: config?.nombre_negocio ?? "Slotify",
-  }).catch(() => {});
+  }).catch((e) => console.warn(JSON.stringify({ ts: new Date().toISOString(), nivel: "warn", area: "crear-cita", evento: "email_profesional_fallido", datos: { error: (e as Error).message } })));
 
   return json({
     ok: true,
     cita: { ...cita, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString() },
     link_gestion: link,
     aviso_cliente: avisoNoShow,
-  });
+  }, 200, req);
 }
 
 serve(async (req) => {
-  const headers = { ...corsHeaders };
   try {
-    const res = await createCitaRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...headers, "Content-Type": "application/json" } });
+    return await createCitaRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), {
-      status: 500,
-      headers,
-    });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

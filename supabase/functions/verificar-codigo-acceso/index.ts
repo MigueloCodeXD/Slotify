@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { crearSesionCliente } from "../_shared/token.ts";
 import { getClientIp } from "../_shared/ip.ts";
@@ -17,10 +17,10 @@ export async function verificarCodigoRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
 
   const email = parsed.data.email.toLowerCase();
   const ip = getClientIp(req);
@@ -34,7 +34,7 @@ export async function verificarCodigoRequest(req: Request): Promise<Response> {
     .eq("tipo", "verificar")
     .gte("created_at", desde);
   if ((porIp ?? 0) >= LIM.maxPorIp) {
-    return json({ error: "Demasiados intentos. Intenta más tarde." }, 429);
+    return json({ error: "Demasiados intentos. Intenta más tarde." }, 429, req);
   }
 
   await admin.from("intentos_codigo").insert({ email, ip, tipo: "verificar" });
@@ -51,23 +51,21 @@ export async function verificarCodigoRequest(req: Request): Promise<Response> {
     .maybeSingle();
 
   if (error || !registro) {
-    return json({ error: "Código inválido o expirado." }, 400);
+    return json({ error: "Código inválido o expirado." }, 400, req);
   }
 
   await admin.from("codigos_acceso").update({ usado: true }).eq("id", registro.id);
   await admin.from("intentos_codigo").delete().eq("email", email).eq("tipo", "verificar");
 
   const sesion = await crearSesionCliente(email);
-  return json({ ok: true, sesion });
+  return json({ ok: true, sesion }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await verificarCodigoRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await verificarCodigoRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

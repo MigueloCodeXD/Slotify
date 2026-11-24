@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
@@ -23,20 +23,20 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: adminProf } = await getProfesionalByUser(userId);
   if (!adminProf || adminProf.rol !== "admin") {
-    return json({ error: "Solo el administrador puede gestionar profesionales." }, 403);
+    return json({ error: "Solo el administrador puede gestionar profesionales." }, 403, req);
   }
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   switch (d.accion) {
@@ -71,9 +71,9 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
     }
 
     case "editar": {
-      if (!d.id) return json({ error: "Falta id." }, 400);
+      if (!d.id) return json({ error: "Falta id." }, 400, req);
       const { data: prof } = await admin.from("profesionales").select("*").eq("id", d.id).single();
-      if (!prof) return json({ error: "No se encontró el profesional." }, 404);
+      if (!prof) return json({ error: "No se encontró el profesional." }, 404, req);
 
       const campos: Record<string, unknown> = {};
       if (d.nombre !== undefined) campos.nombre = d.nombre;
@@ -89,7 +89,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
             .eq("email", email)
             .neq("id", d.id)
             .maybeSingle();
-          if (dup) return json({ error: "Ese email ya pertenece a otro profesional." }, 400);
+          if (dup) return json({ error: "Ese email ya pertenece a otro profesional." }, 400, req);
           campos.email = email;
           // Cambio de email => requiere re-confirmación (el email es la llave de acceso).
           campos.email_confirmado = false;
@@ -107,26 +107,26 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
           .select("id")
           .eq("rol", "admin")
           .eq("activo", true);
-        if ((admins ?? []).length <= 1) return json({ error: "No puedes degradar al último administrador." }, 400);
+        if ((admins ?? []).length <= 1) return json({ error: "No puedes degradar al último administrador." }, 400, req);
       }
       if (d.activo === false && prof.id === adminProf.id) {
-        return json({ error: "No puedes desactivar tu propia cuenta." }, 400);
+        return json({ error: "No puedes desactivar tu propia cuenta." }, 400, req);
       }
 
       const { error } = await admin.from("profesionales").update(campos).eq("id", d.id);
-      if (error) return json({ error: "No se pudo actualizar el profesional." }, 500);
+      if (error) return json({ error: "No se pudo actualizar el profesional." }, 500, req);
 
       if (d.rol !== undefined && prof.user_id) {
         await admin.auth.admin.updateUserById(prof.user_id, {
           user_metadata: { nombre: d.nombre ?? prof.nombre, rol: d.rol },
         }).catch(() => {});
       }
-      return json({ ok: true });
+      return json({ ok: true }, 200, req);
     }
 
     case "eliminar": {
-      if (!d.id) return json({ error: "Falta id." }, 400);
-      if (d.id === adminProf.id) return json({ error: "No puedes eliminar tu propia cuenta." }, 400);
+      if (!d.id) return json({ error: "Falta id." }, 400, req);
+      if (d.id === adminProf.id) return json({ error: "No puedes eliminar tu propia cuenta." }, 400, req);
       const { data: prof } = await admin.from("profesionales").select("id, rol, user_id").eq("id", d.id).single();
       if (!prof) return json({ error: "No se encontró el profesional." }, 404 );
 
@@ -144,18 +144,18 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
       }
       const { data: admins } = await admin.from("profesionales").select("id").eq("rol", "admin").eq("activo", true);
       if (prof.rol === "admin" && (admins ?? []).length <= 1) {
-        return json({ error: "No puedes eliminar al último administrador." }, 400);
+        return json({ error: "No puedes eliminar al último administrador." }, 400, req);
       }
 
       const { error } = await admin.from("profesionales").delete().eq("id", d.id);
-      if (error) return json({ error: "No se pudo eliminar el profesional." }, 500);
-      return json({ ok: true });
+      if (error) return json({ error: "No se pudo eliminar el profesional." }, 500, req);
+      return json({ ok: true }, 200, req);
     }
 
     case "asignar_servicios": {
-      if (!d.id || !d.servicio_ids) return json({ error: "Faltan datos." }, 400);
+      if (!d.id || !d.servicio_ids) return json({ error: "Faltan datos." }, 400, req);
       const { data: prof } = await admin.from("profesionales").select("id, cargo").eq("id", d.id).single();
-      if (!prof) return json({ error: "No se encontró el profesional." }, 404);
+      if (!prof) return json({ error: "No se encontró el profesional." }, 404, req);
       // Un profesional solo puede ofrecer servicios cuyo cargo_requerido
       // coincida con su cargo (o servicios sin cargo requerido).
       const { data: servicios } = await admin
@@ -170,16 +170,16 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
         const { error } = await admin
           .from("profesional_servicios")
           .insert(permitidos.map((servicio_id) => ({ profesional_id: d.id, servicio_id })));
-        if (error) return json({ error: "No se pudieron asignar los servicios." }, 500);
+        if (error) return json({ error: "No se pudieron asignar los servicios." }, 500, req);
       }
-      return json({ ok: true, asignados: permitidos.length });
+      return json({ ok: true, asignados: permitidos.length }, 200, req);
     }
 
     case "reenviar_invitacion": {
-      if (!d.id) return json({ error: "Falta id." }, 400);
+      if (!d.id) return json({ error: "Falta id." }, 400, req);
       const { data: prof } = await admin.from("profesionales").select("id, nombre, email, user_id").eq("id", d.id).single();
-      if (!prof) return json({ error: "No se encontró el profesional." }, 404);
-      if (prof.user_id) return json({ error: "Este profesional ya vinculó su cuenta." }, 400);
+      if (!prof) return json({ error: "No se encontró el profesional." }, 404, req);
+      if (prof.user_id) return json({ error: "Este profesional ya vinculó su cuenta." }, 400, req);
 
       const { data: invExistente } = await admin
         .from("invitaciones")
@@ -196,7 +196,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
           .eq("id", invExistente.id)
           .select("token")
           .single();
-        if (eUpd || !inv) return json({ error: "No se pudo regenerar la invitación." }, 500);
+        if (eUpd || !inv) return json({ error: "No se pudo regenerar la invitación." }, 500, req);
         token = inv.token;
       } else {
         const { data: inv, error: eInv } = await admin
@@ -204,7 +204,7 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
           .insert({ profesional_id: d.id, creado_por: adminProf.id })
           .select("token")
           .single();
-        if (eInv || !inv) return json({ error: "No se pudo generar la invitación." }, 500);
+        if (eInv || !inv) return json({ error: "No se pudo generar la invitación." }, 500, req);
         token = inv.token;
       }
 
@@ -215,39 +215,37 @@ export async function gestionarProfesionalesRequest(req: Request): Promise<Respo
         link_activacion: link,
         negocio: "Slotify",
       }).catch(() => {});
-      return json({ ok: true, mensaje: "Invitación reenviada." });
+      return json({ ok: true, mensaje: "Invitación reenviada." }, 200, req);
     }
 
     case "reenviar_confirmacion_email": {
-      if (!d.id) return json({ error: "Falta id." }, 400);
+      if (!d.id) return json({ error: "Falta id." }, 400, req);
       const { data: prof } = await admin
         .from("profesionales")
         .select("id, nombre, email, user_id, email_confirmado")
         .eq("id", d.id)
         .single();
-      if (!prof) return json({ error: "No se encontró el profesional." }, 404);
+      if (!prof) return json({ error: "No se encontró el profesional." }, 404, req);
       if (prof.email_confirmado !== false) {
-        return json({ error: "El email ya está confirmado." }, 400);
+        return json({ error: "El email ya está confirmado." }, 400, req);
       }
       if (prof.user_id) {
         const { error: eAuth } = await admin.auth.admin.updateUserById(prof.user_id, {
           email: prof.email,
           email_confirm: false,
         });
-        if (eAuth) return json({ error: "No se pudo enviar la confirmación." }, 500);
+        if (eAuth) return json({ error: "No se pudo enviar la confirmación." }, 500, req);
       }
-      return json({ ok: true, mensaje: "Confirmación enviada a tu nuevo email." });
+      return json({ ok: true, mensaje: "Confirmación enviada a tu nuevo email." }, 200, req);
     }
   }
 }
 
 serve(async (req) => {
   try {
-    const res = await gestionarProfesionalesRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await gestionarProfesionalesRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

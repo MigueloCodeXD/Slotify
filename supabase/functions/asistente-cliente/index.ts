@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { chatConHerramientas, type ToolDef } from "../_shared/gemini.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
@@ -100,7 +100,7 @@ export async function asistenteRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = z
     .object({
@@ -116,7 +116,7 @@ export async function asistenteRequest(req: Request): Promise<Response> {
         .optional(),
     })
     .safeParse(body);
-  if (!parsed.success) return json({ error: "Mensaje inválido" }, 400);
+  if (!parsed.success) return json({ error: "Mensaje inválido" }, 400, req);
 
   const handlers: Record<string, (args: Record<string, unknown>) => Promise<unknown>> = {
     consultar_catalogo: async () => {
@@ -245,9 +245,9 @@ export async function asistenteRequest(req: Request): Promise<Response> {
   });
 
   if (fallback) {
-    return json({ respuesta: "", fallback: true });
+    return json({ respuesta: "", fallback: true }, 200, req);
   }
-  return json({ respuesta, fallback: false });
+  return json({ respuesta, fallback: false }, 200, req);
 }
 
 function norm(s: string): string {
@@ -349,11 +349,9 @@ async function crearCita(args: Record<string, unknown>): Promise<unknown> {
 
 serve(async (req) => {
   try {
-    const res = await asistenteRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await asistenteRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

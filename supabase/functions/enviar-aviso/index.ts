@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
@@ -16,18 +16,18 @@ export async function enviarAvisoRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   const { data: cita, error } = await admin
@@ -35,9 +35,9 @@ export async function enviarAvisoRequest(req: Request): Promise<Response> {
     .select("id, profesional_id, token_gestion, cliente:clientes(*)")
     .eq("id", d.cita_id)
     .single();
-  if (error || !cita) return json({ error: "No se encontró la cita." }, 404);
+  if (error || !cita) return json({ error: "No se encontró la cita." }, 404, req);
   if (cita.profesional_id !== prof.id && prof.rol !== "admin") {
-    return json({ error: "No puedes enviar avisos en esa cita." }, 403);
+    return json({ error: "No puedes enviar avisos en esa cita." }, 403, req);
   }
 
   const { error: eIns } = await admin.from("avisos_cita").insert({
@@ -47,7 +47,7 @@ export async function enviarAvisoRequest(req: Request): Promise<Response> {
     es_publico_cliente: d.es_publico_cliente,
     emisor: "profesional",
   });
-  if (eIns) return json({ error: "No se pudo guardar el aviso." }, 500);
+  if (eIns) return json({ error: "No se pudo guardar el aviso." }, 500, req);
 
   if (d.es_publico_cliente) {
     const cli = (Array.isArray(cita.cliente) ? cita.cliente[0] : cita.cliente) as unknown as
@@ -64,16 +64,14 @@ export async function enviarAvisoRequest(req: Request): Promise<Response> {
     }).catch(() => {});
   }
 
-  return json({ ok: true });
+  return json({ ok: true }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await enviarAvisoRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await enviarAvisoRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

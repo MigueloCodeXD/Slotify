@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
@@ -26,18 +26,18 @@ export async function eliminarCitaProfRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
 
   const objetivo = await resolverProfesionalObjetivo(prof, parsed.data.profesional_id);
   if ("error" in objetivo) return objetivo.error;
@@ -48,8 +48,8 @@ export async function eliminarCitaProfRequest(req: Request): Promise<Response> {
     .select("*, cliente:clientes(*), servicio:servicios(*), profesional:profesionales(*)")
     .eq("id", parsed.data.cita_id)
     .single();
-  if (error || !cita) return json({ error: "No se encontró la cita." }, 404);
-  if (cita.profesional_id !== target.id) return json({ error: "No puedes gestionar esa cita." }, 403);
+  if (error || !cita) return json({ error: "No se encontró la cita." }, 404, req);
+  if (cita.profesional_id !== target.id) return json({ error: "No puedes gestionar esa cita." }, 403, req);
 
   const rango = parseRango(cita.rango_tiempo as string);
 
@@ -64,18 +64,16 @@ export async function eliminarCitaProfRequest(req: Request): Promise<Response> {
   }
 
   const { error: eDel } = await admin.from("citas").delete().eq("id", cita.id);
-  if (eDel) return json({ error: "No se pudo eliminar la cita." }, 500);
+  if (eDel) return json({ error: "No se pudo eliminar la cita." }, 500, req);
 
-  return json({ ok: true, eliminada: true });
+  return json({ ok: true, eliminada: true }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await eliminarCitaProfRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await eliminarCitaProfRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

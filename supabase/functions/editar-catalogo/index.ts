@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json, asegurarCategoria } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 
@@ -24,15 +24,15 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof || prof.rol !== "admin") return json({ error: "Solo el administrador puede modificar el catálogo." }, 403);
+  if (!prof || prof.rol !== "admin") return json({ error: "Solo el administrador puede modificar el catálogo." }, 403, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: "Datos inválidos", detalle: parsed.error.flatten() }, 400);
@@ -46,18 +46,18 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
       .eq("servicio_id", d.servicio_id)
       .in("estado", ["confirmada", "pendiente"]);
     if ((count ?? 0) > 0) {
-      return json({ error: "No se puede eliminar: hay citas activas. Desactívalo en su lugar." }, 400);
+      return json({ error: "No se puede eliminar: hay citas activas. Desactívalo en su lugar." }, 400, req);
     }
     const { error } = await admin.from("servicios").delete().eq("id", d.servicio_id);
-    if (error) return json({ error: "No se pudo eliminar el servicio." }, 500);
+    if (error) return json({ error: "No se pudo eliminar el servicio." }, 500, req);
     await admin.from("profesional_servicios").delete().eq("servicio_id", d.servicio_id);
-    return json({ ok: true, eliminado: true });
+    return json({ ok: true, eliminado: true }, 200, req);
   }
 
   if (d.nombre === undefined && d.descripcion === undefined && d.categoria === undefined &&
       d.precio === undefined && d.duracion_min === undefined && d.buffer_min === undefined &&
       d.activo === undefined && d.imagen_url === undefined && d.cargo_requerido === undefined && !d.servicio_id) {
-    return json({ error: "Sin cambios." }, 400);
+    return json({ error: "Sin cambios." }, 400, req);
   }
 
   const campos: Record<string, unknown> = {};
@@ -74,14 +74,14 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
   let servicioId = d.servicio_id ?? null;
   if (d.servicio_id) {
     const { error } = await admin.from("servicios").update(campos).eq("id", d.servicio_id);
-    if (error) return json({ error: "No se pudo actualizar el servicio." }, 500);
+    if (error) return json({ error: "No se pudo actualizar el servicio." }, 500, req);
   } else {
     const { data, error } = await admin
       .from("servicios")
       .insert({ nombre: d.nombre ?? "Nuevo servicio", precio: d.precio ?? 0, duracion_min: d.duracion_min ?? 30 })
       .select("id")
       .single();
-    if (error) return json({ error: "No se pudo crear el servicio." }, 500);
+    if (error) return json({ error: "No se pudo crear el servicio." }, 500, req);
     servicioId = data!.id;
   }
 
@@ -94,16 +94,14 @@ export async function editarCatalogoRequest(req: Request): Promise<Response> {
     }
   }
 
-  return json({ ok: true, servicio_id: servicioId });
+  return json({ ok: true, servicio_id: servicioId }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await editarCatalogoRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await editarCatalogoRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

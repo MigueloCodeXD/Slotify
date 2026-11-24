@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { esServiceRole } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
@@ -20,8 +20,8 @@ function parseRango(text: string): { start: number; end: number } {
 const HORA_MS = 3_600_000;
 
 export async function recordatoriosRequest(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!esServiceRole(req)) return json({ error: "No autorizado." }, 401);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
+  if (!esServiceRole(req)) return json({ error: "No autorizado." }, 401, req);
 
   const ahora = Date.now();
   const desde = new Date(ahora).toISOString();
@@ -52,32 +52,38 @@ export async function recordatoriosRequest(req: Request): Promise<Response> {
 
     const link = `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/mi-cita?token=${(c as unknown as { token_gestion: string }).token_gestion}`;
 
-    await enviarCorreo("recordatorio_cita_cliente", {
-      to: cliente.email,
-      nombre: cliente.nombre,
-      servicio,
-      profesional: profesional.nombre,
-      fecha: new Date(rango.start).toISOString(),
-      link_gestion: link,
-      direccion,
-    }).catch(() => {});
+    let enviado = true;
+    try {
+      await enviarCorreo("recordatorio_cita_cliente", {
+        to: cliente.email,
+        nombre: cliente.nombre,
+        servicio,
+        profesional: profesional.nombre,
+        fecha: new Date(rango.start).toISOString(),
+        link_gestion: link,
+        direccion,
+      });
+      await enviarCorreo("recordatorio_cita_profesional", {
+        to: profesional.email,
+        nombre: profesional.nombre,
+        cliente: cliente.nombre,
+        servicio,
+        fecha: new Date(rango.start).toISOString(),
+        direccion,
+      });
+    } catch (e) {
+      enviado = false;
+      console.error(JSON.stringify({ ts: new Date().toISOString(), nivel: "warn", area: "recordatorios-citas", evento: "email_fallido", datos: { cita_id: c.id, error: (e as Error).message } }));
+    }
 
-    await enviarCorreo("recordatorio_cita_profesional", {
-      to: profesional.email,
-      nombre: profesional.nombre,
-      cliente: cliente.nombre,
-      servicio,
-      fecha: new Date(rango.start).toISOString(),
-      direccion,
-    }).catch(() => {});
-
-    // Marcar como recordada (guarda WHERE recordado_at IS NULL por si hay concurrencia)
-    const { error } = await admin
-      .from("citas")
-      .update({ recordado_at: new Date().toISOString() })
-      .eq("id", c.id)
-      .is("recordado_at", null);
-    if (!error) recordados++;
+    if (enviado) {
+      const { error } = await admin
+        .from("citas")
+        .update({ recordado_at: new Date().toISOString() })
+        .eq("id", c.id)
+        .is("recordado_at", null);
+      if (!error) recordados++;
+    }
   }
 
   return json({ ok: true, citas_revisadas: (citas ?? []).length, recordatorios_enviados: recordados });
@@ -89,6 +95,6 @@ serve(async (req) => {
     return res;
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

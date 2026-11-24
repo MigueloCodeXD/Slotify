@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
 import { getClientIp } from "../_shared/ip.ts";
@@ -17,10 +17,10 @@ export async function solicitarCodigoRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Email inválido" }, 400);
+  if (!parsed.success) return json({ error: "Email inválido" }, 400, req);
 
   const email = parsed.data.email.toLowerCase();
   const ip = getClientIp(req);
@@ -34,7 +34,7 @@ export async function solicitarCodigoRequest(req: Request): Promise<Response> {
     .eq("tipo", "solicitar")
     .gte("created_at", desde);
   if ((porIp ?? 0) >= GEN.maxPorIp) {
-    return json({ error: "Demasiadas solicitudes. Intenta más tarde." }, 429);
+    return json({ error: "Demasiadas solicitudes. Intenta más tarde." }, 429, req);
   }
 
   // Rate limit por email: máx 3 códigos por email en 10 min
@@ -45,7 +45,7 @@ export async function solicitarCodigoRequest(req: Request): Promise<Response> {
     .gte("created_at", desde);
   if ((count ?? 0) >= GEN.max) {
     // Respuesta genérica para no filtrar nada
-    return json({ ok: true, mensaje: "Si el correo existe, recibirás un código." });
+    return json({ ok: true, mensaje: "Si el correo existe, recibirás un código." }, 200, req);
   }
 
   await admin.from("intentos_codigo").insert({ email, ip, tipo: "solicitar" });
@@ -62,7 +62,7 @@ export async function solicitarCodigoRequest(req: Request): Promise<Response> {
   });
   if (error) {
     console.error("Error guardando código:", error);
-    return json({ error: "No se pudo procesar la solicitud." }, 500);
+    return json({ error: "No se pudo procesar la solicitud." }, 500, req);
   }
 
   const { data: cliente } = await admin
@@ -77,16 +77,14 @@ await enviarCorreo("codigo_acceso_cliente", {
     codigo,
   }).catch(() => {});
 
-  return json({ ok: true, mensaje: "Si el correo existe, recibirás un código." });
+  return json({ ok: true, mensaje: "Si el correo existe, recibirás un código." }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await solicitarCodigoRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await solicitarCodigoRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

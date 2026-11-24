@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 
@@ -25,18 +25,18 @@ export async function historialClienteRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
 
   const objetivo = await resolverProfesionalObjetivo(prof, parsed.data.profesional_id);
   if ("error" in objetivo) return objetivo.error;
@@ -47,7 +47,7 @@ export async function historialClienteRequest(req: Request): Promise<Response> {
     .select("id, nombre, email, telefono")
     .eq("id", parsed.data.cliente_id)
     .maybeSingle();
-  if (!cliente) return json({ error: "No se encontró el cliente." }, 404);
+  if (!cliente) return json({ error: "No se encontró el cliente." }, 404, req);
 
   const { data: citas, error } = await admin
     .from("citas")
@@ -56,7 +56,7 @@ export async function historialClienteRequest(req: Request): Promise<Response> {
     .eq("cliente_id", cliente.id)
     .order("rango_tiempo", { ascending: false })
     .limit(100);
-  if (error) return json({ error: "No se pudo consultar el historial." }, 500);
+  if (error) return json({ error: "No se pudo consultar el historial." }, 500, req);
 
   return json({
     ok: true,
@@ -67,11 +67,9 @@ export async function historialClienteRequest(req: Request): Promise<Response> {
 
 serve(async (req) => {
   try {
-    const res = await historialClienteRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await historialClienteRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

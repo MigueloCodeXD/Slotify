@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 
@@ -26,18 +26,18 @@ export async function configProfRequest(req: Request): Promise<Response> {
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
@@ -62,11 +62,11 @@ export async function configProfRequest(req: Request): Promise<Response> {
       });
     }
     case "guardar_disponibilidad": {
-      if (!d.dias) return json({ error: "Faltan días." }, 400);
+      if (!d.dias) return json({ error: "Faltan días." }, 400, req);
       for (const dia of d.dias) {
-        if (dia.hora_fin <= dia.hora_inicio) return json({ error: "Rango horario inválido." }, 400);
+        if (dia.hora_fin <= dia.hora_inicio) return json({ error: "Rango horario inválido." }, 400, req);
         if (dia.pausa_inicio && dia.pausa_fin && dia.pausa_fin <= dia.pausa_inicio) {
-          return json({ error: "La pausa es inválida." }, 400);
+          return json({ error: "La pausa es inválida." }, 400, req);
         }
       }
       await admin.from("disponibilidad_profesional").delete().eq("profesional_id", target.id);
@@ -81,9 +81,9 @@ export async function configProfRequest(req: Request): Promise<Response> {
             profesional_id: target.id,
           }))
         );
-        if (error) return json({ error: "No se pudo guardar la disponibilidad." }, 500);
+        if (error) return json({ error: "No se pudo guardar la disponibilidad." }, 500, req);
       }
-      return json({ ok: true });
+      return json({ ok: true }, 200, req);
     }
     case "listar_mis_servicios": {
       const { data } = await admin
@@ -97,7 +97,7 @@ export async function configProfRequest(req: Request): Promise<Response> {
       return json({ cargos: (data ?? []).map((x) => x.nombre) });
     }
     case "asignar_servicios": {
-      if (!d.servicio_ids) return json({ error: "Faltan servicios." }, 400);
+      if (!d.servicio_ids) return json({ error: "Faltan servicios." }, 400, req);
       // Un profesional solo puede ofrecer servicios cuyo cargo_requerido
       // coincida con su cargo (o servicios sin cargo requerido).
       const { data: servicios } = await admin
@@ -112,20 +112,18 @@ export async function configProfRequest(req: Request): Promise<Response> {
         const { error } = await admin.from("profesional_servicios").insert(
           permitidos.map((servicio_id) => ({ profesional_id: target.id, servicio_id }))
         );
-        if (error) return json({ error: "No se pudo asignar." }, 500);
+        if (error) return json({ error: "No se pudo asignar." }, 500, req);
       }
-      return json({ ok: true, asignados: permitidos.length });
+      return json({ ok: true, asignados: permitidos.length }, 200, req);
     }
   }
 }
 
 serve(async (req) => {
   try {
-    const res = await configProfRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await configProfRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

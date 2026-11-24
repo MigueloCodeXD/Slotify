@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { consultarDisponibilidad, getConfig } from "../_shared/disponibilidad.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
+import { auditarCita } from "../_shared/auditoria.ts";
 
 const schema = z.object({
   token_gestion: z.string().uuid(),
@@ -29,18 +30,18 @@ export async function reprogramarCitaRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
 
   const { data: cita, error } = await admin
     .from("citas")
     .select("*, cliente:clientes(*), servicio:servicios(*), profesional:profesionales(*)")
     .eq("token_gestion", parsed.data.token_gestion)
     .single();
-  if (error || !cita) return json({ error: "No se encontró la cita." }, 404);
-  if (cita.estado !== "confirmada") return json({ error: "Esta cita ya no es reprogramable." }, 400);
+  if (error || !cita) return json({ error: "No se encontró la cita." }, 404, req);
+  if (cita.estado !== "confirmada") return json({ error: "Esta cita ya no es reprogramable." }, 400, req);
 
   const cfg = await getConfig();
   const rangoActual = parseRango(cita.rango_tiempo as string);
@@ -49,9 +50,9 @@ export async function reprogramarCitaRequest(req: Request): Promise<Response> {
   }
 
   const nuevoStart = Date.parse(parsed.data.nuevo_start);
-  if (Number.isNaN(nuevoStart)) return json({ error: "Fecha inválida" }, 400);
+  if (Number.isNaN(nuevoStart)) return json({ error: "Fecha inválida" }, 400, req);
   if (nuevoStart < Date.now() + cfg.margen_anticipacion_horas * 3_600_000) {
-    return json({ error: "La nueva fecha no cumple el margen de anticipación." }, 400);
+    return json({ error: "La nueva fecha no cumple el margen de anticipación." }, 400, req);
   }
 
   const disp = await consultarDisponibilidad({
@@ -61,7 +62,7 @@ export async function reprogramarCitaRequest(req: Request): Promise<Response> {
     end: nuevoStart + cita.servicio.duracion_min * 60_000,
   });
   const match = disp.slots.find((s) => Date.parse(s.start) === nuevoStart);
-  if (!match) return json({ error: "El nuevo horario ya no está disponible." }, 409);
+  if (!match) return json({ error: "El nuevo horario ya no está disponible." }, 409, req);
 
   const endMs = nuevoStart + cita.servicio.duracion_min * 60_000 + cita.servicio.buffer_min * 60_000;
   const nuevoRango = `["${new Date(nuevoStart).toISOString()}","${new Date(endMs).toISOString()}")`;
@@ -70,7 +71,8 @@ export async function reprogramarCitaRequest(req: Request): Promise<Response> {
     .from("citas")
     .update({ rango_tiempo: nuevoRango })
     .eq("id", cita.id);
-  if (eUp) return json({ error: "No se pudo reprogramar la cita." }, 500);
+  if (eUp) return json({ error: "No se pudo reprogramar la cita." }, 500, req);
+  await auditarCita({ citaId: cita.id, estadoAnterior: cita.estado, estadoNuevo: cita.estado, hechoPor: "cliente", accion: "reprogramada_cliente", detalles: { antes: cita.rango_tiempo, despues: nuevoRango } });
 
   const link = `${Deno.env.get("APP_BASE_URL") ?? "http://localhost:3000"}/mi-cita?token=${cita.token_gestion}`;
   const { data: cfgDir } = await admin.from("config").select("direccion").single();
@@ -92,16 +94,14 @@ export async function reprogramarCitaRequest(req: Request): Promise<Response> {
     direccion,
   }).catch(() => {});
 
-  return json({ ok: true });
+  return json({ ok: true }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await reprogramarCitaRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await reprogramarCitaRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

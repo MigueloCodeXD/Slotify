@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsHeadersFor } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { esServiceRole } from "../_shared/auth.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
@@ -18,8 +18,8 @@ function parseRango(text: string): { start: string; end: string } {
 }
 
 export async function resumenRequest(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (!esServiceRole(req)) return json({ error: "No autorizado." }, 401);
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeadersFor(req) });
+  if (!esServiceRole(req)) return json({ error: "No autorizado." }, 401, req);
 
   const tz = await getTZ();
   const fecha = diaLocalIso(Date.now(), tz);
@@ -58,24 +58,30 @@ export async function resumenRequest(req: Request): Promise<Response> {
   for (const r of resumenes) {
     const filas = r.citas
       .map(
-        (c: any) =>
-          `<tr><td style="padding:8px;border-bottom:1px solid #eee">${new Date(c.start).toLocaleString("es", {
+        (c) => {
+          const cita = c as { start: string; cliente: string; servicio: string };
+          return `<tr><td style="padding:8px;border-bottom:1px solid #eee">${new Date(cita.start).toLocaleString("es", {
             hour: "2-digit",
             minute: "2-digit",
             timeZone: tz,
-          })}</td><td style="padding:8px;border-bottom:1px solid #eee">${c.cliente}</td><td style="padding:8px;border-bottom:1px solid #eee">${c.servicio}</td></tr>`
+          })}</td><td style="padding:8px;border-bottom:1px solid #eee">${cita.cliente}</td><td style="padding:8px;border-bottom:1px solid #eee">${cita.servicio}</td></tr>`;
+        }
       )
       .join("");
-    await enviarCorreo("resumen_matutino", {
-      to: r.email,
-      nombre: r.nombre,
-      htmlCitas: `<table style="border-collapse:collapse;width:100%"><tr><th style="padding:8px;text-align:left">Hora</th><th style="padding:8px;text-align:left">Cliente</th><th style="padding:8px;text-align:left">Servicio</th></tr>${filas}</table>`,
-    }).catch(() => {});
-    enviados++;
+    try {
+      await enviarCorreo("resumen_matutino", {
+        to: r.email,
+        nombre: r.nombre,
+        htmlCitas: `<table style="border-collapse:collapse;width:100%"><tr><th style="padding:8px;text-align:left">Hora</th><th style="padding:8px;text-align:left">Cliente</th><th style="padding:8px;text-align:left">Servicio</th></tr>${filas}</table>`,
+      });
+      enviados++;
+    } catch (e) {
+      registrar("resumen-matutino", "warn", "email_fallido", { email: r.email, error: (e as Error).message });
+    }
   }
 
-  registrar("resumen-matutino", "info", "resumen_generado", { fecha, profesionales_notificados: enviados });
-  return json({ ok: true, fecha, profesionales_notificados: enviados });
+  registrar("resumen-matutino", "info", "resumen_generado", { fecha, profesionales_notificados: enviados, total_profesionales: resumenes.length });
+  return json({ ok: true, fecha, profesionales_notificados: enviados }, 200, req);
 }
 
 serve(async (req) => {
@@ -84,6 +90,6 @@ serve(async (req) => {
     return res;
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

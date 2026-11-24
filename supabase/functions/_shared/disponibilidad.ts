@@ -97,15 +97,15 @@ export async function getOcupado(opts: {
     throw new Error("Error consultando ocupación");
   }
 
-  const group = (rows: { profesional_id: string; rango_tiempo: string }[] | null) => {
+  const group = (rows: Array<{ profesional_id: string; rango_tiempo: string }> | null) => {
     const map: Record<string, Rango[]> = {};
     for (const r of rows ?? []) (map[r.profesional_id] ??= []).push(parseRange(r.rango_tiempo));
     return map;
   };
 
   return {
-    bloqueos: group(bloqueos as { profesional_id: string; rango_tiempo: string }[] | null),
-    citas: group(citas as { profesional_id: string; rango_tiempo: string }[] | null),
+    bloqueos: group((bloqueos ?? []) as Array<{ profesional_id: string; rango_tiempo: string }>),
+    citas: group((citas ?? []) as Array<{ profesional_id: string; rango_tiempo: string }>),
   };
 }
 

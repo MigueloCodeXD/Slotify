@@ -251,9 +251,9 @@ function escaparHTML(v: unknown): string {
 
 export async function enviarCorreo(tipo: EmailTipo, datos: DatosEmail): Promise<void> {
   const brevoKey = Deno.env.get("BREVO_API_KEY");
-  const fromEmail = Deno.env.get("BREVO_FROM_EMAIL") ?? "miguebermudez77@gmail.com";
+  const fromEmail = Deno.env.get("BREVO_FROM_EMAIL") ?? "no-reply@example.com";
   if (!brevoKey) {
-    console.error("BREVO_API_KEY no configurada; correo omitido:", tipo);
+    console.warn(JSON.stringify({ ts: new Date().toISOString(), nivel: "warn", area: "brevo", evento: "api_key_faltante", datos: { tipo } }));
     return;
   }
   const { subject, html } = construirEmail(tipo, datos);
@@ -276,23 +276,30 @@ export async function enviarCorreo(tipo: EmailTipo, datos: DatosEmail): Promise<
   const htmlFinal = render(html);
   const subjectFinal = render(subject);
 
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "api-key": brevoKey,
-    },
-    body: JSON.stringify({
-      sender: { name: "Slotify", email: fromEmail },
-      to: [{ email: String(datos.to) }],
-      subject: subjectFinal,
-      htmlContent: htmlFinal,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    console.error(`Brevo error ${res.status}:`, body.slice(0, 500));
-    throw new Error(`Error enviando correo (${tipo}): ${res.status}`);
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": brevoKey,
+      },
+      body: JSON.stringify({
+        sender: { name: "Slotify", email: fromEmail },
+        to: [{ email: String(datos.to) }],
+        subject: subjectFinal,
+        htmlContent: htmlFinal,
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(JSON.stringify({ ts: new Date().toISOString(), nivel: "error", area: "brevo", evento: "error_envio", datos: { tipo, status: res.status, body: body.slice(0, 200) } }));
+      throw new Error(`Error enviando correo (${tipo}): ${res.status}`);
+    }
+  } finally {
+    clearTimeout(timer);
   }
 }
 

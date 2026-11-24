@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser } from "../_shared/auth.ts";
 
@@ -15,19 +15,19 @@ export async function gestionarCategoriasRequest(req: Request): Promise<Response
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
   const esAdmin = prof.rol === "admin";
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   switch (d.accion) {
@@ -42,40 +42,38 @@ export async function gestionarCategoriasRequest(req: Request): Promise<Response
     }
 
     case "crear": {
-      if (!esAdmin) return json({ error: "Solo el administrador puede gestionar categorías." }, 403);
-      if (!d.nombre) return json({ error: "Falta el nombre." }, 400);
+      if (!esAdmin) return json({ error: "Solo el administrador puede gestionar categorías." }, 403, req);
+      if (!d.nombre) return json({ error: "Falta el nombre." }, 400, req);
       const { error } = await admin.from("categorias").insert({ nombre: d.nombre });
       if (error) return json({ error: "No se pudo crear la categoría (¿ya existe?)." }, 400);
-      return json({ ok: true });
+      return json({ ok: true }, 200, req);
     }
 
     case "renombrar": {
-      if (!esAdmin) return json({ error: "Solo el administrador puede gestionar categorías." }, 403);
-      if (!d.id || !d.nombre) return json({ error: "Faltan datos." }, 400);
+      if (!esAdmin) return json({ error: "Solo el administrador puede gestionar categorías." }, 403, req);
+      if (!d.id || !d.nombre) return json({ error: "Faltan datos." }, 400, req);
       const { error } = await admin.from("categorias").update({ nombre: d.nombre }).eq("id", d.id);
       if (error) return json({ error: "No se pudo renombrar la categoría (¿ya existe?)." }, 400);
-      return json({ ok: true });
+      return json({ ok: true }, 200, req);
     }
 
     case "eliminar": {
-      if (!esAdmin) return json({ error: "Solo el administrador puede gestionar categorías." }, 403);
-      if (!d.id) return json({ error: "Falta id." }, 400);
+      if (!esAdmin) return json({ error: "Solo el administrador puede gestionar categorías." }, 403, req);
+      if (!d.id) return json({ error: "Falta id." }, 400, req);
       const { error } = await admin.from("categorias").delete().eq("id", d.id);
       if (error) {
-        return json({ error: "No se puede eliminar: hay servicios con esta categoría." }, 400);
+        return json({ error: "No se puede eliminar: hay servicios con esta categoría." }, 400, req);
       }
-      return json({ ok: true });
+      return json({ ok: true }, 200, req);
     }
   }
 }
 
 serve(async (req) => {
   try {
-    const res = await gestionarCategoriasRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await gestionarCategoriasRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

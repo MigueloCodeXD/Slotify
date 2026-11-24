@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { getUserFromRequest, getProfesionalByUser, resolverProfesionalObjetivo } from "../_shared/auth.ts";
 import { citaConflicto } from "../_shared/disponibilidad.ts";
@@ -18,18 +18,18 @@ export async function actualizarBloqueoRequest(req: Request): Promise<Response> 
   if (cors) return cors;
 
   const userId = await getUserFromRequest(req);
-  if (!userId) return json({ error: "No autorizado." }, 401);
+  if (!userId) return json({ error: "No autorizado." }, 401, req);
   const { data: prof } = await getProfesionalByUser(userId);
-  if (!prof) return json({ error: "No autorizado." }, 401);
+  if (!prof) return json({ error: "No autorizado." }, 401, req);
 
   let body: unknown;
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   const objetivo = await resolverProfesionalObjetivo(prof, d.profesional_id);
@@ -41,8 +41,8 @@ export async function actualizarBloqueoRequest(req: Request): Promise<Response> 
     .select("id, profesional_id, rango_tiempo, motivo")
     .eq("id", d.id)
     .single();
-  if (!bloqueo) return json({ error: "No se encontró el bloqueo." }, 404);
-  if (bloqueo.profesional_id !== target.id) return json({ error: "No puedes gestionar ese bloqueo." }, 403);
+  if (!bloqueo) return json({ error: "No se encontró el bloqueo." }, 404, req);
+  if (bloqueo.profesional_id !== target.id) return json({ error: "No puedes gestionar ese bloqueo." }, 403, req);
 
   const campos: Record<string, unknown> = {};
   const cambioRango = d.start !== undefined || d.end !== undefined;
@@ -51,7 +51,7 @@ export async function actualizarBloqueoRequest(req: Request): Promise<Response> 
     const start = d.start !== undefined ? Date.parse(d.start) : Date.parse(rangoActual.start);
     const end = d.end !== undefined ? Date.parse(d.end) : Date.parse(rangoActual.end);
     if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
-      return json({ error: "Rango inválido." }, 400);
+      return json({ error: "Rango inválido." }, 400, req);
     }
     const conflicto = await citaConflicto({ profesionalId: target.id, start, end });
     if (conflicto) {
@@ -67,11 +67,11 @@ export async function actualizarBloqueoRequest(req: Request): Promise<Response> 
   }
   if (d.motivo !== undefined) campos.motivo = d.motivo ?? null;
 
-  if (Object.keys(campos).length === 0) return json({ ok: true });
+  if (Object.keys(campos).length === 0) return json({ ok: true }, 200, req);
   const { error } = await admin.from("bloqueos").update(campos).eq("id", d.id);
-  if (error) return json({ error: "No se pudo actualizar el bloqueo." }, 500);
+  if (error) return json({ error: "No se pudo actualizar el bloqueo." }, 500, req);
 
-  return json({ ok: true });
+  return json({ ok: true }, 200, req);
 }
 
 function parseRango(text: string): { start: string; end: string } {
@@ -83,11 +83,9 @@ function parseRango(text: string): { start: string; end: string } {
 
 serve(async (req) => {
   try {
-    const res = await actualizarBloqueoRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await actualizarBloqueoRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { z } from "npm:zod@3.25.76";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { verificarSesionCliente } from "../_shared/token.ts";
 import { enviarCorreo } from "../_shared/brevo.ts";
@@ -22,10 +22,10 @@ export async function contactarRequest(req: Request): Promise<Response> {
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Body inválido" }, 400);
+    return json({ error: "Body inválido" }, 400, req);
   }
   const parsed = schema.safeParse(body);
-  if (!parsed.success) return json({ error: "Datos inválidos" }, 400);
+  if (!parsed.success) return json({ error: "Datos inválidos" }, 400, req);
   const d = parsed.data;
 
   let clienteEmail: string | null = null;
@@ -35,20 +35,20 @@ export async function contactarRequest(req: Request): Promise<Response> {
   // Autorización: sesión de cliente o token de gestión de la cita.
   if (d.sesion) {
     const sesion = await verificarSesionCliente(d.sesion);
-    if (!sesion) return json({ error: "Sesión inválida o expirada." }, 401);
+    if (!sesion) return json({ error: "Sesión inválida o expirada." }, 401, req);
     clienteEmail = sesion.email;
     const { data: cli } = await admin.from("clientes").select("nombre, email").eq("email", sesion.email).maybeSingle();
     if (cli) clienteNombre = cli.nombre;
   } else if (d.token_gestion) {
     const { data: cita } = await admin.from("citas").select("cliente_id").eq("token_gestion", d.token_gestion).single();
-    if (!cita) return json({ error: "Cita no encontrada." }, 404);
+    if (!cita) return json({ error: "Cita no encontrada." }, 404, req);
     const { data: cli } = await admin.from("clientes").select("nombre, email").eq("id", cita.cliente_id).maybeSingle();
     if (cli) {
       clienteEmail = cli.email;
       clienteNombre = cli.nombre;
     }
   } else {
-    return json({ error: "Falta sesión o token." }, 400);
+    return json({ error: "Falta sesión o token." }, 400, req);
   }
 
   const { data: cita } = await admin
@@ -56,14 +56,14 @@ export async function contactarRequest(req: Request): Promise<Response> {
     .select("id, profesional_id, servicio:servicios(nombre), rango_tiempo")
     .eq("id", citaId)
     .single();
-  if (!cita) return json({ error: "Cita no encontrada." }, 404);
+  if (!cita) return json({ error: "Cita no encontrada." }, 404, req);
 
   const { data: prof } = await admin
     .from("profesionales")
     .select("nombre, email")
     .eq("id", cita.profesional_id)
     .single();
-  if (!prof) return json({ error: "Cita no encontrada." }, 404);
+  if (!prof) return json({ error: "Cita no encontrada." }, 404, req);
 
   const rango = String(cita.rango_tiempo ?? "");
   const [startRaw] = rango.replace(/[\[\]"]/g, "").split(",");
@@ -98,16 +98,14 @@ export async function contactarRequest(req: Request): Promise<Response> {
     profesional_id: cita.profesional_id,
   });
 
-  return json({ ok: true, mensaje: "Mensaje enviado al profesional." });
+  return json({ ok: true, mensaje: "Mensaje enviado al profesional." }, 200, req);
 }
 
 serve(async (req) => {
   try {
-    const res = await contactarRequest(req);
-    const body = await res.text();
-    return new Response(body, { status: res.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return await contactarRequest(req);
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Error interno" }), { status: 500, headers: corsHeaders });
+    return json({ error: "Error interno" }, 500, req);
   }
 });

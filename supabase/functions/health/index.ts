@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { handleCors } from "../_shared/cors.ts";
 import { admin, json } from "../_shared/db.ts";
 import { registrar } from "../_shared/logging.ts";
 
@@ -31,7 +31,7 @@ export async function healthRequest(req: Request): Promise<Response> {
     hora: new Date().toISOString(),
     latencia_ms: Date.now() - inicio,
   };
-  return json(cuerpo, db === "ok" ? 200 : 503);
+  return json(cuerpo, db === "ok" ? 200 : 503, req);
 }
 
 serve(async (req) => {
@@ -39,6 +39,6 @@ serve(async (req) => {
     return await healthRequest(req);
   } catch (err) {
     registrar("health", "error", "health_excepcion", { mensaje: (err as Error).message });
-    return new Response(JSON.stringify({ status: "error" }), { status: 500, headers: corsHeaders });
+    return json({ status: "error" }, 500, req);
   }
 });
